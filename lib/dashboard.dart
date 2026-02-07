@@ -8,78 +8,91 @@ class DashboardScreen extends StatelessWidget {
         title: Text("Panel de Control - SICOPA", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Color(0xFFA62145),
         elevation: 0,
+        actions: [
+          IconButton(icon: Icon(Icons.notifications_none, color: Colors.white), onPressed: () {}),
+          IconButton(icon: Icon(Icons.account_circle, color: Colors.white), onPressed: () {}),
+        ],
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFFAFAFA), Color(0xFFE5E5E5)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: GridView.count(
-            crossAxisCount: 2,
-            crossAxisSpacing: 20,
-            mainAxisSpacing: 20,
-            children: [
-              _buildMenuCard(context, "Verificaciones", Icons.qr_code_scanner),
-              _buildMenuCard(context, "Movimientos", Icons.swap_horiz),
-              _buildMenuCard(context, "Historial", Icons.history),
-              _buildMenuCard(context, "Reportes", Icons.file_present),
-              _buildMenuCard(context, "Nuevo Registro", Icons.add_box),
-              _buildMenuCard(context, "Configuración", Icons.settings),
-            ],
-          ),
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            _buildStatisticsHeader(),
+            Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: GridView.count(
+                shrinkWrap: true,
+                physics: NeverScrollableScrollPhysics(),
+                crossAxisCount: 2,
+                crossAxisSpacing: 20,
+                mainAxisSpacing: 20,
+                children: [
+                  _buildMenuCard(context, "Verificaciones", Icons.qr_code_scanner, Colors.blue),
+                  _buildMenuCard(context, "Movimientos", Icons.swap_horiz, Colors.orange),
+                  _buildMenuCard(context, "Historial", Icons.history, Colors.purple),
+                  _buildMenuCard(context, "Reportes", Icons.file_present, Colors.red),
+                  _buildMenuCard(context, "Carga Masiva", Icons.cloud_upload, Colors.teal),
+                  _buildMenuCard(context, "Ajustes", Icons.settings, Colors.blueGrey),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildMenuCard(BuildContext context, String titulo, IconData icon) {
-    return InkWell(
-      onTap: () {
-        // Lógica de navegación
-      },
-      splashColor: Color(0xFFA62145).withOpacity(0.3),
-      borderRadius: BorderRadius.circular(20),
-      child: Card(
-        elevation: 6,
-        shadowColor: Colors.black38,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              colors: [Colors.white, Colors.white.withOpacity(0.9)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildStatisticsHeader() {
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 30),
+      decoration: BoxDecoration(
+        color: Color(0xFFA62145),
+        borderRadius: BorderRadius.only(bottomLeft: Radius.circular(30), bottomRight: Radius.circular(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Estado Global del Inventario", style: TextStyle(color: Colors.white70, fontSize: 14)),
+          SizedBox(height: 15),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: EdgeInsets.all(15),
-                decoration: BoxDecoration(
-                  color: Color(0xFFA62145).withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, size: 45, color: Color(0xFFA62145)),
-              ),
-              SizedBox(height: 15),
-              Text(
-                titulo,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 16, 
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87
-                ),
-              ),
+              _buildStatItem("92%", "Ubicados", Icons.check_circle, Colors.greenAccent),
+              _buildStatItem("05%", "Movimiento", Icons.sync, Colors.lightBlueAccent),
+              _buildStatItem("03%", "Faltantes", Icons.error_outline, Colors.orangeAccent),
             ],
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String val, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Icon(icon, color: color, size: 28),
+        SizedBox(height: 5),
+        Text(val, style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(color: Colors.white60, fontSize: 10)),
+      ],
+    );
+  }
+
+  Widget _buildMenuCard(BuildContext context, String titulo, IconData icon, Color color) {
+    return InkWell(
+      onTap: () {},
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 5))],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 40, color: Color(0xFFA62145)),
+            SizedBox(height: 10),
+            Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          ],
         ),
       ),
     );
