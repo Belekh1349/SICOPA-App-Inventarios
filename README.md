@@ -1,4 +1,5 @@
 # SICOPA - Sistema de Control Patrimonial
+> **Estado del Proyecto:** Despliegue en curso mediante GitHub Actions 🚀
 
 SICOPA es una solución tecnológica avanzada diseñada para la gestión, verificación y trazabilidad de los bienes muebles del **Gobierno del Estado de México**.
 
