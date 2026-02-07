@@ -1,0 +1,6 @@
+id_bien,nombre_bien,serie,nfc_id,estatus_verificacion,secretaria,unidad,area,resguardatario_nombre,resguardatario_id
+INV-FIN-001,Laptop Dell Latitude 5420,ABC-123,NFC-001,UBICADO,FINANZAS,Coordinación de Administración,Subcoordinación de Informática,Enrique David Gama,EMP-001
+INV-FIN-002,Monitor Dell 24 U2422H,MON-456,NFC-002,POR_UBICAR,FINANZAS,Coordinación de Administración,Subcoordinación de Informática,Juan Pérez,EMP-002
+INV-GUB-001,iPad Pro 12.9 M2,IPA-789,NFC-003,MOVIMIENTO,GUBERNATURA,Secretaría Particular,Oficina del C. Jefe,María García,EMP-003
+INV-VOC-001,Cámara Sony A7 IV,SON-101,NFC-004,UBICADO,VOCERÍA DE LA GUBERNATURA,Coordinación de Información,Subcoordinación de Materiales,Carlos Ruiz,EMP-004
+INV-FIN-003,Escritorio Ejecutivo Madera,ESC-202,NFC-005,NO_UBICADO,FINANZAS,Coordinación de Administración,Subcoordinación de Servicios Generales,Ana López,EMP-005

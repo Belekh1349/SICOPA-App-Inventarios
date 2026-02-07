@@ -1,0 +1,48 @@
+{
+  "colecciones": {
+    "usuarios": {
+      "uid_ejemplo_123": {
+        "nombre": "Enrique David Gama González",
+        "email": "enrique@edomex.gob.mx",
+        "rol": "ADMIN_SUPREMO",
+        "fecha_creacion": "2024-02-07T12:00:00Z"
+      }
+    },
+    "bienes": {
+      "INV-FIN-2024-001": {
+        "id_bien": "INV-FIN-2024-001",
+        "nombre_bien": "Laptop Dell Latitude 5420",
+        "serie": "ABC123XYZ",
+        "nfc_id": "NFC-778899",
+        "estatus_verificacion": "UBICADO",
+        "ubicacion_actual": {
+          "secretaria": "FINANZAS",
+          "unidad": "Coordinación de Administración",
+          "area": "Subcoordinación de Informática"
+        },
+        "fotografia_url": "https://storage.googleapis.com/.../laptop.jpg",
+        "resguardatario": {
+          "nombre": "Juan Pérez",
+          "id_empleado": "EMP-001"
+        },
+        "ultima_verificacion": "2024-02-07T14:30:00Z"
+      }
+    },
+    "movimientos": {
+      "MOV-99887766": {
+        "tipo": "TRANSFERENCIA",
+        "fecha": "2024-02-07T15:00:00Z",
+        "bien_id": "INV-FIN-2024-001",
+        "origen": {
+          "usuario": "Juan Pérez",
+          "area": "Informática"
+        },
+        "destino": {
+          "usuario": "María García",
+          "area": "Recursos Humanos"
+        },
+        "autorizado_por": "uid_ejemplo_123"
+      }
+    }
+  }
+}

@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // --- FUNCIONES DE AYUDA ---
+    
+    // Verifica si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Obtiene los datos del usuario actual
+    function getUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    // Verifica roles
+    function esAdmin() {
+      return isAuthenticated() && getUsuario().rol == 'ADMIN_SUPREMO';
+    }
+
+    function esVerificador() {
+      return isAuthenticated() && getUsuario().rol == 'VERIFICADOR';
+    }
+
+    // --- REGLAS POR COLECCIÓN ---
+
+    // Colección de Bienes: Acceso total para Admin, actualización para Verificador
+    match /bienes/{bienId} {
+      allow read: if isAuthenticated();
+      allow update: if esVerificador() || esAdmin();
+      allow create, delete: if esAdmin();
+    }
+
+    // Colección de Movimientos: Inmune a ediciones/eliminaciones (Historial Inviolable)
+    match /movimientos/{movId} {
+      allow read: if isAuthenticated();
+      allow create: if esVerificador() || esAdmin();
+      allow update, delete: if false; 
+    }
+
+    // Colección de Usuarios: Solo Admins pueden cambiar roles; usuarios pueden leer su perfil
+    match /usuarios/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if esAdmin() || request.auth.uid == userId;
+    }
+    
+    // Colección de Configuraciones (para fondos, etc.)
+    match /configuracion/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if esAdmin();
+    }
+  }
+}
