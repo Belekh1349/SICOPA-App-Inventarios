@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-// Nota: Estas librerías deben agregarse al pubspec.yaml
-// import 'package:mobile_scanner/mobile_scanner.dart';
-// import 'package:nfc_manager/nfc_manager.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'widgets/bien_detail_sheet.dart';
 
 class VerificacionScreen extends StatefulWidget {
   @override
@@ -9,66 +9,327 @@ class VerificacionScreen extends StatefulWidget {
 }
 
 class _VerificacionScreenState extends State<VerificacionScreen> {
-  String _estatusActual = 'POR_UBICAR'; // Estatus inicial
+  MobileScannerController? _cameraController;
+  String _estatusActual = 'ESPERANDO';
+  bool _isProcessing = false;
+  Map<String, dynamic>? _bienEncontrado;
+  String? _lastScannedCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _cameraController = MobileScannerController(
+      detectionSpeed: DetectionSpeed.normal,
+      facing: CameraFacing.back,
+      torchEnabled: false,
+    );
+  }
+
+  @override
+  void dispose() {
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
+    if (_isProcessing) return;
+    
+    final barcode = capture.barcodes.firstOrNull;
+    if (barcode == null || barcode.rawValue == null) return;
+    
+    final code = barcode.rawValue!;
+    
+    // Evitar procesar el mismo código repetidamente
+    if (code == _lastScannedCode) return;
+    _lastScannedCode = code;
+    
+    setState(() {
+      _isProcessing = true;
+      _estatusActual = 'BUSCANDO';
+    });
+    
+    try {
+      // Buscar el bien en Firestore por ID o código de barras
+      QuerySnapshot query = await FirebaseFirestore.instance
+          .collection('bienes')
+          .where('codigo', isEqualTo: code)
+          .limit(1)
+          .get();
+      
+      // Si no se encuentra por código, buscar por ID
+      if (query.docs.isEmpty) {
+        final docRef = await FirebaseFirestore.instance
+            .collection('bienes')
+            .doc(code)
+            .get();
+        
+        if (docRef.exists) {
+          final data = docRef.data()!;
+          data['id'] = docRef.id;
+          setState(() {
+            _bienEncontrado = data;
+            _estatusActual = data['status'] ?? 'POR_UBICAR';
+          });
+          _showBienDetails();
+        } else {
+          setState(() {
+            _estatusActual = 'NO_ENCONTRADO';
+            _bienEncontrado = null;
+          });
+          _showNotFoundDialog(code);
+        }
+      } else {
+        final doc = query.docs.first;
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        setState(() {
+          _bienEncontrado = data;
+          _estatusActual = data['status'] ?? 'POR_UBICAR';
+        });
+        _showBienDetails();
+      }
+    } catch (e) {
+      setState(() {
+        _estatusActual = 'ERROR';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al buscar bien: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => _isProcessing = false);
+      
+      // Resetear después de un tiempo para permitir nuevos escaneos
+      Future.delayed(Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() => _lastScannedCode = null);
+        }
+      });
+    }
+  }
+
+  void _showBienDetails() {
+    if (_bienEncontrado == null) return;
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BienDetailSheet(
+        bien: _bienEncontrado!,
+        onStatusChanged: (newStatus) async {
+          await _updateBienStatus(newStatus);
+        },
+      ),
+    );
+  }
+  
+  Future<void> _updateBienStatus(String newStatus) async {
+    if (_bienEncontrado == null) return;
+    
+    try {
+      await FirebaseFirestore.instance
+          .collection('bienes')
+          .doc(_bienEncontrado!['id'])
+          .update({
+            'status': newStatus,
+            'ultimaVerificacion': FieldValue.serverTimestamp(),
+          });
+      
+      setState(() => _estatusActual = newStatus);
+      
+      // Registrar en historial de movimientos
+      await FirebaseFirestore.instance.collection('movimientos').add({
+        'bienId': _bienEncontrado!['id'],
+        'descripcionBien': _bienEncontrado!['descripcion'] ?? 'Sin descripción',
+        'tipoMovimiento': 'VERIFICACION',
+        'nuevoEstatus': newStatus,
+        'fecha': FieldValue.serverTimestamp(),
+        'observaciones': 'Verificación por escaneo',
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Estado actualizado a $newStatus"), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al actualizar: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+  
+  void _showNotFoundDialog(String code) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.search_off, color: Colors.orange, size: 30),
+            SizedBox(width: 10),
+            Text("Bien No Encontrado"),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("El código escaneado no corresponde a ningún bien registrado en el sistema."),
+            SizedBox(height: 15),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.qr_code, color: Colors.grey),
+                  SizedBox(width: 10),
+                  Expanded(child: Text(code, style: TextStyle(fontFamily: 'monospace'))),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cerrar")),
+          ElevatedButton.icon(
+            icon: Icon(Icons.add),
+            label: Text("Registrar Nuevo"),
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
+            onPressed: () {
+              Navigator.pop(context);
+              // Navegar a pantalla de registro con el código pre-llenado
+              // Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrarBienScreen(codigo: code)));
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Función de registro pendiente de implementar")),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Escáner de Bienes"),
+        title: Text("Verificar Bien"),
         backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(_cameraController?.torchEnabled == true ? Icons.flash_on : Icons.flash_off),
+            onPressed: () => _cameraController?.toggleTorch(),
+          ),
+          IconButton(
+            icon: Icon(Icons.flip_camera_ios),
+            onPressed: () => _cameraController?.switchCamera(),
+          ),
+        ],
       ),
       body: Column(
         children: [
-          // Área del Escáner (Placeholder para MobileScanner)
+          // Área del Escáner
           Expanded(
-            flex: 2,
+            flex: 3,
             child: Container(
-              margin: EdgeInsets.all(20),
+              margin: EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(30),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Color(0xFFA62145), width: 3),
               ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.camera_alt, color: Colors.white, size: 60),
-                    SizedBox(height: 10),
-                    Text("Cámara Activa (QR / Barcode)", style: TextStyle(color: Colors.white)),
-                  ],
-                ),
+              clipBehavior: Clip.hardEdge,
+              child: Stack(
+                children: [
+                  MobileScanner(
+                    controller: _cameraController,
+                    onDetect: _onBarcodeDetected,
+                  ),
+                  // Overlay de escaneo
+                  Center(
+                    child: Container(
+                      width: 250,
+                      height: 250,
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.white54, width: 2),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                    ),
+                  ),
+                  // Indicador de procesamiento
+                  if (_isProcessing)
+                    Container(
+                      color: Colors.black54,
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            CircularProgressIndicator(color: Colors.white),
+                            SizedBox(height: 15),
+                            Text("Buscando bien...", style: TextStyle(color: Colors.white, fontSize: 16)),
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
           
-          // Panel de Información y Semáforo
+          // Panel de Estado
           Expanded(
-            flex: 1,
+            flex: 2,
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(30),
+                  topRight: Radius.circular(30),
+                ),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -5))],
+              ),
               child: Column(
                 children: [
-                  Text("Estatus de Verificación", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  Text("Estatus de Verificación", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  SizedBox(height: 15),
+                  _buildSemaforo(_estatusActual),
                   SizedBox(height: 20),
-                  _semaforo(_estatusActual),
-                  SizedBox(height: 30),
                   
-                  // Botón de lectura NFC (Simbolismo)
-                  ElevatedButton.icon(
-                    icon: Icon(Icons.nfc),
-                    label: Text("ESPERANDO LECTURA NFC..."),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blueGrey,
-                      foregroundColor: Colors.white,
-                      minimumSize: Size(double.infinity, 50),
+                  if (_bienEncontrado != null) ...[
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.inventory_2, color: Color(0xFFA62145)),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(_bienEncontrado!['descripcion'] ?? 'Sin descripción', 
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                Text("ID: ${_bienEncontrado!['id']}", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.info_outline),
+                            onPressed: _showBienDetails,
+                          ),
+                        ],
+                      ),
                     ),
-                    onPressed: () {
-                      // Iniciar sesión NFC: NfcManager.instance.startSession(...)
-                    },
-                  ),
+                  ] else
+                    Text("Escanea un código QR o de barras", style: TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
@@ -78,44 +339,43 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
     );
   }
 
-  // Widget Semáforo Visual Premium
-  Widget _semaforo(String estado) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _circuloColor(Colors.green, "UBICADO", estado == 'UBICADO'),
-          _circuloColor(Colors.blue, "MOVIMIENTO", estado == 'MOVIMIENTO'),
-          _circuloColor(Colors.amber, "POR UBICAR", estado == 'POR_UBICAR'),
-          _circuloColor(Colors.red, "NO UBICADO", estado == 'NO_UBICADO'),
-        ],
-      ),
+  Widget _buildSemaforo(String estado) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildCirculoEstado(Colors.green, "UBICADO", estado == 'UBICADO'),
+        _buildCirculoEstado(Colors.blue, "MOVIMIENTO", estado == 'MOVIMIENTO'),
+        _buildCirculoEstado(Colors.amber, "POR UBICAR", estado == 'POR_UBICAR' || estado == 'ESPERANDO'),
+        _buildCirculoEstado(Colors.red, "NO UBICADO", estado == 'NO_UBICADO' || estado == 'NO_ENCONTRADO'),
+      ],
     );
   }
 
-  Widget _circuloColor(Color color, String label, bool activo) {
+  Widget _buildCirculoEstado(Color color, String label, bool activo) {
     return Column(
       children: [
         AnimatedContainer(
-          duration: Duration(milliseconds: 500),
-          width: activo ? 55 : 35,
-          height: activo ? 55 : 35,
+          duration: Duration(milliseconds: 300),
+          width: activo ? 50 : 35,
+          height: activo ? 50 : 35,
           decoration: BoxDecoration(
             color: activo ? color : color.withOpacity(0.2),
             shape: BoxShape.circle,
-            boxShadow: activo ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)] : [],
+            boxShadow: activo 
+              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)] 
+              : [],
             border: Border.all(color: activo ? Colors.white : Colors.transparent, width: 2),
           ),
+          child: activo ? Icon(Icons.check, color: Colors.white, size: 24) : null,
         ),
-        SizedBox(height: 8),
+        SizedBox(height: 6),
         Text(
           label, 
           style: TextStyle(
-            fontSize: 10, 
+            fontSize: 9, 
             fontWeight: activo ? FontWeight.bold : FontWeight.normal,
-            color: activo ? Colors.black87 : Colors.black38
-          )
+            color: activo ? Colors.black87 : Colors.black38,
+          ),
         ),
       ],
     );

@@ -1,104 +1,231 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BienDetailSheet extends StatelessWidget {
   final Map<String, dynamic> bien;
-
-  BienDetailSheet({required this.bien});
+  final Function(String)? onStatusChanged;
+  
+  const BienDetailSheet({
+    Key? key,
+    required this.bien,
+    this.onStatusChanged,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    final status = bien['status'] ?? 'POR_UBICAR';
+    
     return Container(
-      padding: EdgeInsets.all(25),
+      height: MediaQuery.of(context).size.height * 0.7,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(topLeft: Radius.circular(30), topRight: Radius.circular(30)),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(25),
+          topRight: Radius.circular(25),
+        ),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle indicator
+          Container(
+            margin: EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          
+          // Header con estado
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: _getStatusColor(status).withOpacity(0.1),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(status),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(_getStatusIcon(status), color: Colors.white, size: 28),
+                ),
+                SizedBox(width: 15),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        bien['descripcion'] ?? 'Sin descripción',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      SizedBox(height: 4),
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          _getStatusLabel(status),
+                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Detalles del bien
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  _buildDetailRow("ID Patrimonial", bien['id'] ?? 'N/A', Icons.tag),
+                  _buildDetailRow("Código de Barras", bien['codigo'] ?? 'N/A', Icons.qr_code),
+                  _buildDetailRow("Ubicación", bien['ubicacion'] ?? 'Sin ubicación', Icons.location_on),
+                  _buildDetailRow("Resguardatario", bien['resguardatario'] ?? 'Sin asignar', Icons.person),
+                  _buildDetailRow("Área", bien['area'] ?? 'N/A', Icons.business),
+                  _buildDetailRow("Valor", bien['valor'] != null ? '\$${bien['valor']}' : 'N/A', Icons.attach_money),
+                  if (bien['observaciones'] != null && bien['observaciones'].toString().isNotEmpty)
+                    _buildDetailRow("Observaciones", bien['observaciones'], Icons.notes),
+                  if (bien['ultimaVerificacion'] != null)
+                    _buildDetailRow(
+                      "Última Verificación", 
+                      _formatTimestamp(bien['ultimaVerificacion']), 
+                      Icons.access_time
+                    ),
+                ],
+              ),
+            ),
+          ),
+          
+          // Botones de acción
+          Container(
+            padding: EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, -5))],
+            ),
+            child: Column(
+              children: [
+                Text("Cambiar Estado", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(child: _buildStatusButton(context, "UBICADO", Colors.green, status)),
+                    SizedBox(width: 10),
+                    Expanded(child: _buildStatusButton(context, "MOVIMIENTO", Colors.blue, status)),
+                    SizedBox(width: 10),
+                    Expanded(child: _buildStatusButton(context, "NO_UBICADO", Colors.red, status)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDetailRow(String label, String value, IconData icon) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 10),
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _statusBadge(bien['estatus_verificacion'] ?? 'UBICADO'),
-              IconButton(icon: Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-            ],
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Color(0xFFA62145).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Color(0xFFA62145), size: 20),
           ),
-          SizedBox(height: 15),
-          Text(bien['nombre_bien'] ?? "Sin nombre", 
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)
-          ),
-          Text("Folio Inventario: ${bien['id_bien']}", 
-            style: TextStyle(color: Colors.grey[600], fontSize: 14)
-          ),
-          Divider(height: 40),
-          _infoRow(Icons.person, "Resguardatario", bien['resguardatario_nombre'] ?? "N/A"),
-          _infoRow(Icons.business, "Secretaría", bien['secretaria'] ?? "N/A"),
-          _infoRow(Icons.location_on, "Área Actual", bien['area'] ?? "N/A"),
-          _infoRow(Icons.fingerprint, "NFC ID", bien['nfc_id'] ?? "No registrado"),
-          SizedBox(height: 30),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    side: BorderSide(color: Color(0xFFA62145)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {},
-                  child: Text("VER HISTORIAL", style: TextStyle(color: Color(0xFFA62145))),
-                ),
-              ),
-              SizedBox(width: 15),
-              Expanded(
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFA62145),
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  ),
-                  onPressed: () {},
-                  child: Text("TRANSFERIR", style: TextStyle(color: Colors.white)),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 20),
-        ],
-      ),
-    );
-  }
-
-  Widget _statusBadge(String status) {
-    Color color = Colors.green;
-    if (status == 'MOVIMIENTO') color = Colors.blue;
-    if (status == 'POR_UBICAR') color = Colors.orange;
-    if (status == 'NO_UBICADO') color = Colors.red;
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-      child: Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12)),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey[400], size: 20),
           SizedBox(width: 15),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 11)),
-              Text(value, style: TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
-            ],
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: TextStyle(color: Colors.grey, fontSize: 12)),
+                SizedBox(height: 2),
+                Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+              ],
+            ),
           ),
         ],
       ),
     );
+  }
+  
+  Widget _buildStatusButton(BuildContext context, String status, Color color, String currentStatus) {
+    final isActive = status == currentStatus;
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isActive ? color : Colors.grey.shade200,
+        foregroundColor: isActive ? Colors.white : Colors.black54,
+        padding: EdgeInsets.symmetric(vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        elevation: isActive ? 4 : 0,
+      ),
+      onPressed: isActive ? null : () {
+        onStatusChanged?.call(status);
+        Navigator.pop(context);
+      },
+      child: Text(_getStatusShortLabel(status), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+    );
+  }
+  
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'UBICADO': return Colors.green;
+      case 'MOVIMIENTO': return Colors.blue;
+      case 'NO_UBICADO': return Colors.red;
+      default: return Colors.amber;
+    }
+  }
+  
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'UBICADO': return Icons.check_circle;
+      case 'MOVIMIENTO': return Icons.sync;
+      case 'NO_UBICADO': return Icons.error;
+      default: return Icons.help_outline;
+    }
+  }
+  
+  String _getStatusLabel(String status) {
+    switch (status) {
+      case 'UBICADO': return 'UBICADO';
+      case 'MOVIMIENTO': return 'EN MOVIMIENTO';
+      case 'NO_UBICADO': return 'NO UBICADO';
+      default: return 'POR UBICAR';
+    }
+  }
+  
+  String _getStatusShortLabel(String status) {
+    switch (status) {
+      case 'UBICADO': return 'Ubicado';
+      case 'MOVIMIENTO': return 'Movimiento';
+      case 'NO_UBICADO': return 'No Ubicado';
+      default: return 'Por Ubicar';
+    }
+  }
+  
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      final date = timestamp.toDate();
+      return '${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
+    }
+    return 'N/A';
   }
 }

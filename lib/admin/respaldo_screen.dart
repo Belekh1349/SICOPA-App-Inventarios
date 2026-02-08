@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-// Requiere: file_picker, csv
-// import 'package:file_picker/file_picker.dart';
-// import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:csv/csv.dart';
+import 'dart:convert';
 
 class RespaldoScreen extends StatefulWidget {
   @override
@@ -9,126 +10,315 @@ class RespaldoScreen extends StatefulWidget {
 }
 
 class _RespaldoScreenState extends State<RespaldoScreen> {
-  bool _estaProcesando = false;
-  double _progreso = 0.0;
+  bool _isLoading = false;
+  String? _statusMessage;
+  int _processedCount = 0;
+  int _totalCount = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Administración de Datos"),
-        backgroundColor: Colors.blueGrey[900],
+        title: Text("Carga Masiva"),
+        backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      body: SingleChildScrollView(
+        padding: EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildSectionHeader("Carga Masiva (CSV)", Icons.upload_file),
-            SizedBox(height: 10),
-            Text(
-              "Sube un archivo .csv con la estructura oficial para actualizar el inventario global.",
-              style: TextStyle(color: Colors.grey[600]),
-            ),
-            SizedBox(height: 20),
-            _buildActionCard(
-              "Seleccionar Archivo CSV",
-              "Soporta miles de registros en pocos segundos.",
-              Icons.file_present,
-              Colors.blueAccent,
-              _iniciarCargaMasiva,
+            // Información
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info, color: Colors.blue, size: 30),
+                  SizedBox(width: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Importar Bienes", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        SizedBox(height: 5),
+                        Text(
+                          "Carga un archivo CSV con los bienes patrimoniales para importarlos masivamente al sistema.",
+                          style: TextStyle(color: Colors.blue.shade700, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
             
-            SizedBox(height: 40),
-            _buildSectionHeader("Respaldo de Seguridad", Icons.security),
-            SizedBox(height: 20),
-            _buildActionCard(
-              "Exportar Base Completa",
-              "Descarga un respaldo local en formato JSON.",
-              Icons.download,
-              Color(0xFFA62145),
-              _exportarRespaldo,
+            SizedBox(height: 25),
+            
+            // Formato esperado
+            Text("Formato del archivo CSV", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Columnas requeridas:", style: TextStyle(fontWeight: FontWeight.w500)),
+                  SizedBox(height: 10),
+                  _buildColumnInfo("codigo", "Código de barras o inventario"),
+                  _buildColumnInfo("descripcion", "Descripción del bien"),
+                  _buildColumnInfo("ubicacion", "Ubicación física"),
+                  _buildColumnInfo("resguardatario", "Nombre del resguardatario"),
+                  _buildColumnInfo("area", "Área o departamento (opcional)"),
+                  _buildColumnInfo("valor", "Valor en pesos (opcional)"),
+                ],
+              ),
             ),
-
-            if (_estaProcesando) ...[
-              Spacer(),
-              Center(
+            
+            SizedBox(height: 25),
+            
+            // Ejemplo CSV
+            Text("Ejemplo", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            SizedBox(height: 10),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.black87,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Text(
+                  'codigo,descripcion,ubicacion,resguardatario,area,valor\n'
+                  'INV-001,Computadora Dell,Edificio A,Juan Pérez,Sistemas,15000\n'
+                  'INV-002,Escritorio ejecutivo,Oficina 201,María López,Administración,5000',
+                  style: TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 12),
+                ),
+              ),
+            ),
+            
+            SizedBox(height: 30),
+            
+            // Status de carga
+            if (_statusMessage != null)
+              Container(
+                padding: EdgeInsets.all(15),
+                margin: EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: _isLoading ? Colors.blue.shade50 : Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _isLoading ? Colors.blue : Colors.green),
+                ),
                 child: Column(
                   children: [
-                    CircularProgressIndicator(value: _progreso, color: Color(0xFFA62145)),
+                    if (_isLoading)
+                      LinearProgressIndicator(
+                        value: _totalCount > 0 ? _processedCount / _totalCount : null,
+                        backgroundColor: Colors.blue.shade100,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+                      ),
                     SizedBox(height: 10),
-                    Text("Procesando información... ${(_progreso * 100).toInt()}%"),
+                    Text(_statusMessage!, textAlign: TextAlign.center),
+                    if (_isLoading && _totalCount > 0)
+                      Text("$_processedCount / $_totalCount", style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
-            ]
+            
+            // Botón de carga
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Color(0xFFA62145),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                  elevation: 3,
+                ),
+                icon: Icon(Icons.upload_file),
+                label: Text("SELECCIONAR ARCHIVO CSV", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: _isLoading ? null : _selectAndProcessFile,
+              ),
+            ),
+            
+            SizedBox(height: 20),
+            
+            // Descargar plantilla
+            Center(
+              child: TextButton.icon(
+                icon: Icon(Icons.download),
+                label: Text("Descargar plantilla CSV"),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text("Descargando plantilla...")),
+                  );
+                  // Implementar descarga de plantilla
+                },
+              ),
+            ),
           ],
         ),
       ),
     );
   }
-
-  Widget _buildSectionHeader(String title, IconData icon) {
-    return Row(
-      children: [
-        Icon(icon, color: Color(0xFFA62145)),
-        SizedBox(width: 10),
-        Text(title, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
-
-  Widget _buildActionCard(String title, String subtitle, IconData icon, Color color, VoidCallback onTap) {
-    return InkWell(
-      onTap: _estaProcesando ? null : onTap,
-      child: Card(
-        elevation: 4,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        child: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(12),
-                decoration: BoxDecoration(color: color.withOpacity(0.1), shape: BoxShape.circle),
-                child: Icon(icon, color: color, size: 30),
-              ),
-              SizedBox(width: 20),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(title, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text(subtitle, style: TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey),
-            ],
+  
+  Widget _buildColumnInfo(String column, String description) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: Color(0xFFA62145).withOpacity(0.15),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: Text(column, style: TextStyle(fontFamily: 'monospace', fontSize: 12, fontWeight: FontWeight.bold)),
           ),
-        ),
+          SizedBox(width: 10),
+          Expanded(child: Text(description, style: TextStyle(fontSize: 13))),
+        ],
       ),
     );
   }
-
-  void _iniciarCargaMasiva() async {
-    // 1. Abrir selector de archivos: await FilePicker.platform.pickFiles(...)
-    // 2. Parsear CSV: List<List<dynamic>> rows = const CsvToListConverter().convert(csvString);
-    // 3. Convertir a JSON y llamar a Cloud Function: cargaMasivaBienes({'bienes': ...});
-    
-    setState(() { _estaProcesando = true; _progreso = 0.5; });
-    
-    // Simulación de carga
-    await Future.delayed(Duration(seconds: 2));
-    
-    setState(() { _estaProcesando = false; });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Carga completada con éxito"), backgroundColor: Colors.green),
-    );
-  }
-
-  void _exportarRespaldo() {
-    // Lógica para descargar todos los documentos de Firestore y guardarlos en local
+  
+  Future<void> _selectAndProcessFile() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv'],
+        withData: true,
+      );
+      
+      if (result == null || result.files.isEmpty) {
+        return;
+      }
+      
+      final file = result.files.first;
+      if (file.bytes == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("No se pudo leer el archivo"), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      
+      setState(() {
+        _isLoading = true;
+        _statusMessage = "Procesando archivo...";
+        _processedCount = 0;
+        _totalCount = 0;
+      });
+      
+      // Decodificar CSV
+      final csvString = utf8.decode(file.bytes!);
+      final rows = const CsvToListConverter().convert(csvString);
+      
+      if (rows.isEmpty || rows.length < 2) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = "El archivo está vacío o no tiene datos válidos";
+        });
+        return;
+      }
+      
+      // Primera fila es el header
+      final headers = rows[0].map((e) => e.toString().toLowerCase().trim()).toList();
+      final dataRows = rows.sublist(1);
+      
+      // Validar columnas requeridas
+      if (!headers.contains('codigo') || !headers.contains('descripcion')) {
+        setState(() {
+          _isLoading = false;
+          _statusMessage = "El archivo debe tener las columnas 'codigo' y 'descripcion'";
+        });
+        return;
+      }
+      
+      final codigoIndex = headers.indexOf('codigo');
+      final descripcionIndex = headers.indexOf('descripcion');
+      final ubicacionIndex = headers.contains('ubicacion') ? headers.indexOf('ubicacion') : -1;
+      final resguardatarioIndex = headers.contains('resguardatario') ? headers.indexOf('resguardatario') : -1;
+      final areaIndex = headers.contains('area') ? headers.indexOf('area') : -1;
+      final valorIndex = headers.contains('valor') ? headers.indexOf('valor') : -1;
+      
+      setState(() {
+        _totalCount = dataRows.length;
+        _statusMessage = "Importando ${dataRows.length} bienes...";
+      });
+      
+      // Procesar en batches
+      final batch = FirebaseFirestore.instance.batch();
+      int batchCount = 0;
+      int successCount = 0;
+      
+      for (var row in dataRows) {
+        if (row.length > descripcionIndex) {
+          final codigo = row[codigoIndex]?.toString() ?? '';
+          final descripcion = row[descripcionIndex]?.toString() ?? '';
+          
+          if (descripcion.isNotEmpty) {
+            final docRef = FirebaseFirestore.instance.collection('bienes').doc();
+            
+            batch.set(docRef, {
+              'codigo': codigo,
+              'descripcion': descripcion,
+              'ubicacion': ubicacionIndex >= 0 && row.length > ubicacionIndex ? row[ubicacionIndex]?.toString() ?? '' : '',
+              'resguardatario': resguardatarioIndex >= 0 && row.length > resguardatarioIndex ? row[resguardatarioIndex]?.toString() ?? '' : '',
+              'area': areaIndex >= 0 && row.length > areaIndex ? row[areaIndex]?.toString() ?? '' : '',
+              'valor': valorIndex >= 0 && row.length > valorIndex ? double.tryParse(row[valorIndex]?.toString() ?? '') : null,
+              'status': 'POR_UBICAR',
+              'fechaRegistro': FieldValue.serverTimestamp(),
+            });
+            
+            batchCount++;
+            successCount++;
+            
+            // Commit cada 400 documentos (límite de Firestore es 500)
+            if (batchCount >= 400) {
+              await batch.commit();
+              batchCount = 0;
+            }
+          }
+        }
+        
+        setState(() => _processedCount++);
+      }
+      
+      // Commit final
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+      
+      setState(() {
+        _isLoading = false;
+        _statusMessage = "✅ Importación completada: $successCount bienes agregados";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Se importaron $successCount bienes exitosamente"),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = "❌ Error: $e";
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al procesar archivo: $e"), backgroundColor: Colors.red),
+      );
+    }
   }
 }
