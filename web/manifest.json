@@ -1,0 +1,17 @@
+{
+    "name": "SICOPA",
+    "short_name": "SICOPA",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#A62145",
+    "description": "Sistema de Control Patrimonial",
+    "orientation": "portrait-primary",
+    "icons": [
+        {
+            "src": "favicon.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        }
+    ]
+}
