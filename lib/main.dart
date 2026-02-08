@@ -136,7 +136,7 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
 
 class BackgroundClipper extends CustomClipper<Path> {
   @override
-  Path get樣Path(Size size) {
+  Path getClip(Size size) {
     Path path = Path();
     path.lineTo(0, size.height * 0.85);
     
