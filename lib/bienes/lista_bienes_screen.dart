@@ -3,6 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../widgets/bien_detail_sheet.dart';
 
 class ListaBienesScreen extends StatefulWidget {
+  final String? filterAreaId;
+  final String? filterAreaNombre;
+
+  ListaBienesScreen({this.filterAreaId, this.filterAreaNombre});
+
   @override
   _ListaBienesScreenState createState() => _ListaBienesScreenState();
 }
@@ -14,9 +19,14 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   
   @override
   Widget build(BuildContext context) {
+    String title = "Lista de Bienes";
+    if (widget.filterAreaNombre != null) {
+      title = "Bienes: ${widget.filterAreaNombre}";
+    }
+
     return Scaffold(
       appBar: AppBar(
-        title: Text("Lista de Bienes"),
+        title: Text(title, style: TextStyle(fontSize: 18)),
         backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
         actions: [
@@ -35,6 +45,26 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
       ),
       body: Column(
         children: [
+          // Banner informativo si hay filtro por área
+          if (widget.filterAreaNombre != null)
+            Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+              color: Colors.amber.shade100,
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 16, color: Colors.amber.shade900),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "Mostrando bienes de: ${widget.filterAreaNombre}",
+                      style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
           // Barra de búsqueda
           Container(
             padding: EdgeInsets.all(16),
@@ -159,6 +189,14 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   
   Stream<QuerySnapshot> _buildQuery() {
     Query query = FirebaseFirestore.instance.collection('bienes');
+    
+    if (widget.filterAreaId != null) {
+      // Filtrar por una propiedad 'areaId' que debe existir en el documento de bienes
+      // Si la colección 'bienes' no tiene este campo, no devolverá nada, lo cual es correcto hasta que se asignen.
+      // Ojo: Firebase requiere indices compuestos si filtramos por areaId y status/orderBy descripcion
+      // Por simplicidad, filtramos primero por areaId
+      query = query.where('areaId', isEqualTo: widget.filterAreaId);
+    }
     
     if (_filterStatus != 'TODOS') {
       query = query.where('status', isEqualTo: _filterStatus);

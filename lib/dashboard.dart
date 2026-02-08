@@ -7,6 +7,7 @@ import 'movimientos/nuevo_movimiento_screen.dart';
 import 'admin/respaldo_screen.dart';
 import 'bienes/lista_bienes_screen.dart';
 import 'reportes/reportes_screen.dart';
+import 'estructura/secretarias_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final bool isGuest;
@@ -238,6 +239,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: [
                         _buildMenuCard(context, "Verificar Bien", Icons.qr_code_scanner, Color(0xFF1976D2), () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => VerificacionScreen()));
+                        }),
+                        _buildMenuCard(context, "Dependencias", Icons.domain, Color(0xFF5C6BC0), () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => SecretariasScreen()));
                         }),
                         _buildMenuCard(context, "Nuevo Movimiento", Icons.swap_horiz, Color(0xFFFF9800), () {
                           if (widget.isGuest) {
