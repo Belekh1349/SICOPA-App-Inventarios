@@ -99,229 +99,237 @@ class PantallaInicio extends StatefulWidget {
 }
 
 class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProviderStateMixin {
-  late AnimationController _animController;
+  late AnimationController _controller;
   late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(
-      duration: const Duration(seconds: 2),
+    _controller = AnimationController(
+      duration: const Duration(milliseconds: 1500),
       vsync: this,
-    )..repeat(reverse: true);
+    );
     
-    _fadeAnim = Tween<double>(begin: 0.3, end: 1.0).animate(_animController);
+    _fadeAnim = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _slideAnim = Tween<Offset>(begin: Offset(0, 0.2), end: Offset.zero).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic)
+    );
+
+    // Iniciar animación al cargar
+    _controller.forward();
   }
 
   @override
   void dispose() {
-    _animController.dispose();
+    _controller.dispose();
     super.dispose();
+  }
+  
+  void _navigateTo(Widget page) {
+    Navigator.of(context).push(PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => page,
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        var begin = Offset(1.0, 0.0);
+        var end = Offset.zero;
+        var curve = Curves.easeInOut;
+        var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve)); // Slide lateral suave
+        return SlideTransition(position: animation.drive(tween), child: child);
+      },
+      transitionDuration: Duration(milliseconds: 800), // Lento y premium
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Fondo Curvo Asimétrico
-          ClipPath(
-            clipper: BackgroundClipper(),
+          // Fondo Asimétrico (Color Institucional)
+          Positioned(
+            top: -100,
+            right: -50,
             child: Container(
-              height: MediaQuery.of(context).size.height * 0.45,
+              width: MediaQuery.of(context).size.width * 0.8,
+              height: MediaQuery.of(context).size.height * 0.5,
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFA62145), Color(0xFF7D1632)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+                color: Color(0xFFA62145), // Guinda Institucional
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(200),
                 ),
+                boxShadow: [
+                  BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(-5, 10))
+                ],
               ),
             ),
           ),
           
+          // Logo Institucional Gigante (Marca de agua asimétrica)
+          Positioned(
+            top: 60,
+            right: 20,
+            child: Opacity(
+              opacity: 0.9,
+              // Usar imagen si existe, sino Icono como placeholder elegante
+              // child: Image.asset('assets/images/logo_gem.png', width: 200), 
+              child: Icon(Icons.account_balance, size: 180, color: Colors.white.withOpacity(0.2)),
+            ),
+          ),
+
           SafeArea(
-            child: Column(
-              children: [
-                SizedBox(height: 40),
-                Center(
-                  child: Hero(
-                    tag: 'logo',
-                    child: Container(
-                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))],
-                      ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Spacer(flex: 2),
+                  
+                  // Título App con slide
+                  SlideTransition(
+                    position: _slideAnim,
+                    child: FadeTransition(
+                      opacity: _fadeAnim,
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(Icons.account_balance, size: 50, color: Color(0xFFA62145)),
-                          SizedBox(height: 8),
-                          Text("GEM", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFA62145))),
+                          Container(
+                            height: 4,
+                            width: 60,
+                            color: Color(0xFFD4AF37), // Dorado Premium
+                            margin: EdgeInsets.only(bottom: 15),
+                          ),
+                          Text(
+                            "Verificaciones",
+                            style: TextStyle(
+                              fontSize: 28,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w300, // Light
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                          Text(
+                            "SICOPA",
+                            style: TextStyle(
+                              fontSize: 56,
+                              color: Color(0xFFA62145),
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: -1.0,
+                              height: 0.9
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
-                ),
-                SizedBox(height: 25),
-                Text(
-                  "SICOPA",
-                  style: TextStyle(
-                    fontSize: 36, 
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 4,
-                    color: Colors.white,
-                    shadows: [Shadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 3))],
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  "Sistema de Control Patrimonial",
-                  style: TextStyle(
-                    fontSize: 14, 
-                    color: Colors.white70,
-                    letterSpacing: 1,
-                  ),
-                ),
-                
-                Spacer(),
-                
-                // Características principales
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 30),
-                  child: Column(
-                    children: [
-                      _featureRow(Icons.qr_code_scanner, "Escaneo QR y NFC"),
-                      SizedBox(height: 15),
-                      _featureRow(Icons.inventory_2, "Control de Inventario"),
-                      SizedBox(height: 15),
-                      _featureRow(Icons.track_changes, "Seguimiento en tiempo real"),
-                    ],
-                  ),
-                ),
-                
-                Spacer(),
-                
-                // Botones de acción
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: Column(
-                    children: [
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Color(0xFFA62145),
-                          foregroundColor: Colors.white,
-                          minimumSize: Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          elevation: 8,
-                        ),
-                        child: Text("INICIAR SESIÓN", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (_) => LoginScreen()));
-                        },
+
+                  Spacer(flex: 1),
+
+                  // Saludo Personalizado Animado
+                  FadeTransition(
+                    opacity: _fadeAnim,
+                    child: Container(
+                      padding: EdgeInsets.only(left: 15, top: 10, bottom: 10),
+                      decoration: BoxDecoration(
+                        border: Border(left: BorderSide(color: Color(0xFFD4AF37), width: 2))
                       ),
-                      SizedBox(height: 15),
-                      OutlinedButton(
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Color(0xFFA62145),
-                          minimumSize: Size(double.infinity, 55),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          side: BorderSide(color: Color(0xFFA62145), width: 2),
-                        ),
-                        child: Text("MODO INVITADO (SOLO VER)", style: TextStyle(fontSize: 14)),
-                        onPressed: () {
-                          // Modo demo sin autenticación
-                          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen(isGuest: true)));
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Bienvenido de nuevo,", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                          SizedBox(height: 5),
+                          Text(
+                            "Enrique David\nGama González",
+                            style: TextStyle(
+                              fontSize: 22,
+                              color: Colors.black87,
+                              fontWeight: FontWeight.w600,
+                              height: 1.2
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  Spacer(flex: 3),
+
+                  // Botones de Acción Premium
+                  Column(
+                    children: [
+                      _buildPremiumButton(
+                        text: "INICIAR SESIÓN",
+                        isPrimary: true,
+                        onTap: () => _navigateTo(LoginScreen()),
+                      ),
+                      SizedBox(height: 20),
+                      _buildPremiumButton(
+                        text: "MODO INVITADO",
+                        isPrimary: false,
+                        onTap: () {
+                           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen(isGuest: true)));
                         },
                       ),
                     ],
                   ),
-                ),
-                SizedBox(height: 30),
-                
-                // Logo Gobierno del Estado de México
-                Container(
-                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-                  margin: EdgeInsets.symmetric(horizontal: 40),
-                  decoration: BoxDecoration(
-                    color: Color(0xFFA62145),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.account_balance, color: Colors.white, size: 24),
-                      SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Gobierno del Estado de", style: TextStyle(color: Colors.white70, fontSize: 10)),
-                          Text("MÉXICO", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                      Container(
-                        height: 30,
-                        width: 1,
-                        margin: EdgeInsets.symmetric(horizontal: 15),
-                        color: Colors.white38,
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Estado de", style: TextStyle(color: Colors.white70, fontSize: 10)),
-                          Text("MÉXICO", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 14, fontWeight: FontWeight.bold)),
-                          Text("¡El poder de servir!", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 9, fontStyle: FontStyle.italic)),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-              ],
+                  
+                  SizedBox(height: 40),
+                ],
+              ),
+            ),
+          ),
+          
+          // Pie de página oficial
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: Opacity(
+                 opacity: 0.7,
+                 child: Image.asset(
+                   'assets/images/logo_gobierno.png', 
+                   height: 40,
+                   errorBuilder: (c, o, s) => Text("GOBIERNO DEL ESTADO DE MÉXICO", style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.grey)),
+                 ),
+              ),
             ),
           )
         ],
       ),
     );
   }
-  
-  Widget _featureRow(IconData icon, String text) {
-    return Row(
-      children: [
-        Container(
-          padding: EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Color(0xFFA62145).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(10),
+
+  Widget _buildPremiumButton({required String text, required bool isPrimary, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: Duration(milliseconds: 300),
+        width: double.infinity,
+        height: 60,
+        decoration: BoxDecoration(
+          color: isPrimary ? Color(0xFFA62145) : Colors.transparent,
+          borderRadius: BorderRadius.circular(30), // Bordes muy redondeados
+          border: Border.all(
+            color: isPrimary ? Colors.transparent : Colors.grey.shade400,
+            width: 1.5,
           ),
-          child: Icon(icon, color: Color(0xFFA62145), size: 24),
+          boxShadow: isPrimary 
+            ? [BoxShadow(color: Color(0xFFA62145).withOpacity(0.4), blurRadius: 20, offset: Offset(0, 10))]
+            : [],
         ),
-        SizedBox(width: 15),
-        Text(text, style: TextStyle(fontSize: 16, color: Colors.black87)),
-      ],
+        child: Center(
+          child: Text(
+            text,
+            style: TextStyle(
+              color: isPrimary ? Colors.white : Colors.black87,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ),
+      ),
     );
   }
-}
-
-class BackgroundClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    Path path = Path();
-    path.lineTo(0, size.height * 0.85);
-    
-    var firstControlPoint = Offset(size.width * 0.25, size.height);
-    var firstEndPoint = Offset(size.width * 0.5, size.height * 0.85);
-    path.quadraticBezierTo(firstControlPoint.dx, firstControlPoint.dy, firstEndPoint.dx, firstEndPoint.dy);
-
-    var secondControlPoint = Offset(size.width * 0.75, size.height * 0.7);
-    var secondEndPoint = Offset(size.width, size.height * 0.9);
-    path.quadraticBezierTo(secondControlPoint.dx, secondControlPoint.dy, secondEndPoint.dx, secondEndPoint.dy);
-
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
