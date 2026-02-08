@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../dashboard.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -231,6 +232,11 @@ class _LoginScreenState extends State<LoginScreen> {
                       },
                       child: Text("Solicitar acceso", style: TextStyle(color: Color(0xFFA62145), fontWeight: FontWeight.bold)),
                     ),
+                    SizedBox(height: 10),
+                    TextButton(
+                      onPressed: _showRegisterDialog,
+                      child: Text("Registrar Admin (Inicial)", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    ),
                   ],
                 ),
               ),
@@ -241,6 +247,71 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
   
+  void _showRegisterDialog() {
+    final nameController = TextEditingController();
+    final emailController = TextEditingController();
+    final passwordController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Crear Admin Inicial"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: nameController, decoration: InputDecoration(labelText: "Nombre completo")),
+              TextField(controller: emailController, decoration: InputDecoration(labelText: "Correo electrónico")),
+              TextField(controller: passwordController, obscureText: true, decoration: InputDecoration(labelText: "Contraseña (min 6)")),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            onPressed: () async {
+              if (emailController.text.isEmpty || passwordController.text.length < 6) return;
+              try {
+                // Crear usuario
+                final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+                  email: emailController.text.trim(),
+                  password: passwordController.text,
+                );
+                
+                // Guardar rol de admin
+                if (cred.user != null) {
+                  await FirebaseFirestore.instance.collection('usuarios').doc(cred.user!.uid).set({
+                    'nombre': nameController.text.isEmpty ? 'Administrador' : nameController.text,
+                    'email': emailController.text.trim(),
+                    'rol': 'ADMINISTRADOR',
+                    'fechaRegistro': FieldValue.serverTimestamp(),
+                  });
+                }
+                
+                Navigator.pop(context); // Cerrar diálogo
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("¡Admin creado! Iniciando sesión..."), backgroundColor: Colors.green),
+                );
+                
+                // Navegar al Dashboard
+                if (mounted) {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => DashboardScreen()));
+                }
+                
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: Text("Registrar Admin"),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showResetPasswordDialog() {
     final resetEmailController = TextEditingController();
     showDialog(
