@@ -34,3 +34,4 @@ SICOPA es una solución tecnológica avanzada diseñada para la gestión, verifi
 
 ---
 **Desarrollado para la Subcoordinación de Adquisiciones y Control Patrimonial.**
+ 
