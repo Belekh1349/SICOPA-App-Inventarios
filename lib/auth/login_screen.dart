@@ -71,67 +71,45 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      body: SingleChildScrollView(
+      body: SafeArea(
         child: Form(
           key: _formKey,
           child: Column(
             children: [
-              // Cabecera con Curva
-              Stack(
-                children: [
-                  Container(
-                    height: 280,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [Color(0xFFA62145), Color(0xFF7D1632)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.only(
-                        bottomLeft: Radius.circular(80),
-                        bottomRight: Radius.circular(80),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    top: 40,
-                    left: 10,
-                    child: IconButton(
-                      icon: Icon(Icons.arrow_back_ios, color: Colors.white),
-                      onPressed: () => Navigator.pop(context),
-                    ),
-                  ),
-                  Positioned(
-                    top: 80,
-                    left: 0,
-                    right: 0,
-                    child: Column(
-                      children: [
-                        Hero(
-                          tag: 'logo',
-                          child: Container(
-                            padding: EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                              boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 10)],
-                            ),
-                            child: Icon(Icons.lock_person, size: 50, color: Color(0xFFA62145)),
-                          ),
-                        ),
-                        SizedBox(height: 15),
-                        Text("ACCESO SEGURO", 
-                          style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)
-                        ),
-                        Text("SICOPA v1.0", style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      ],
-                    ),
-                  ),
-                ],
+              Align(
+                alignment: Alignment.topLeft,
+                child: IconButton(
+                  icon: Icon(Icons.arrow_back_ios_new, color: Colors.black54),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
               
+              Spacer(flex: 1),
+
+              // Logo y Título
+              Hero(
+                tag: 'logo',
+                child: Image.asset('assets/images/logo_01.png', width: 150),
+              ),
+              SizedBox(height: 20),
+              Text(
+                "ACCESO SEGURO", 
+                style: TextStyle(
+                  color: Color(0xFFA62145), 
+                  fontSize: 24, 
+                  fontWeight: FontWeight.bold, 
+                  letterSpacing: 1.5
+                )
+              ),
+              Text(
+                "Ingresa tus credenciales institucionales", 
+                style: TextStyle(color: Colors.grey[600], fontSize: 13)
+              ),
+
+              Spacer(flex: 1),
+              
               Padding(
-                padding: const EdgeInsets.all(35.0),
+                padding: const EdgeInsets.symmetric(horizontal: 35.0),
                 child: Column(
                   children: [
                     if (_errorMessage != null)
@@ -163,10 +141,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: "Correo Institucional",
                         prefixIcon: Icon(Icons.email_outlined, color: Color(0xFFA62145)),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide(color: Color(0xFFA62145), width: 2),
+                          borderSide: BorderSide(color: Color(0xFFA62145), width: 1.5),
                         ),
                       ),
                     ),
@@ -183,14 +163,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       decoration: InputDecoration(
                         labelText: "Contraseña",
                         prefixIcon: Icon(Icons.lock_outline, color: Color(0xFFA62145)),
+                        filled: true,
+                        fillColor: Colors.grey.shade50,
                         suffixIcon: IconButton(
-                          icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off),
+                          icon: Icon(_obscureText ? Icons.visibility : Icons.visibility_off, color: Colors.grey),
                           onPressed: () => setState(() => _obscureText = !_obscureText),
                         ),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
-                          borderSide: BorderSide(color: Color(0xFFA62145), width: 2),
+                          borderSide: BorderSide(color: Color(0xFFA62145), width: 1.5),
                         ),
                       ),
                     ),
@@ -213,12 +195,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           backgroundColor: Color(0xFFA62145),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                          elevation: 5,
+                          elevation: 3,
+                          shadowColor: Color(0xFFA62145).withOpacity(0.4),
                         ),
                         onPressed: _isLoading ? null : _signIn,
                         child: _isLoading
                           ? SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : Text("INICIAR SESIÓN", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                          : Text("INICIAR SESIÓN", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
                       ),
                     ),
                     
@@ -235,6 +218,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
+
+              Spacer(flex: 2),
             ],
           ),
         ),
