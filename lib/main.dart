@@ -145,19 +145,20 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          // Fondo Asimétrico (Color Institucional)
+          // Fondo Asimétrico (Color Institucional) - Reducido
           Positioned(
-            top: -100,
-            right: -50,
+            top: -120,
+            right: -60,
             child: Container(
-              width: MediaQuery.of(context).size.width * 0.8,
-              height: MediaQuery.of(context).size.height * 0.5,
+              width: MediaQuery.of(context).size.width * 0.9,
+              height: MediaQuery.of(context).size.height * 0.45,
               decoration: BoxDecoration(
                 color: Color(0xFFA62145), // Guinda Institucional
                 borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(200),
+                  bottomLeft: Radius.circular(180),
                 ),
                 boxShadow: [
                   BoxShadow(color: Colors.black12, blurRadius: 20, offset: Offset(-5, 10))
@@ -166,102 +167,112 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
             ),
           ),
           
-              // Logo Institucional Gigante (Marca de agua asimétrica)
-          Positioned(
-            top: 60,
-            right: 20,
-            child: Opacity(
-              opacity: 0.9,
-              child: Image.asset('assets/images/logo_01.png', width: 200),
-            ),
-          ),
-
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 30.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Spacer(flex: 2),
-                  
-                  // Título App con slide
-                  SlideTransition(
-                    position: _slideAnim,
-                    child: FadeTransition(
-                      opacity: _fadeAnim,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            height: 4,
-                            width: 60,
-                            color: Color(0xFFD4AF37), // Dorado Premium
-                            margin: EdgeInsets.only(bottom: 15),
-                          ),
-                          Text(
-                            "Verificaciones",
-                            style: TextStyle(
-                              fontSize: 28,
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w300, // Light
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                          Text(
-                            "SICOPA",
-                            style: TextStyle(
-                              fontSize: 56,
-                              color: Color(0xFFA62145),
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: -1.0,
-                              height: 0.9
-                            ),
-                          ),
-                        ],
-                      ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header con Logo
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: Opacity(
+                      opacity: 0.95,
+                      child: Image.asset('assets/images/logo_01.png', width: 180),
                     ),
                   ),
+                ),
 
-                  Spacer(flex: 1),
+                Spacer(), // Espacio flexible superior
 
-                  // Saludo Personalizado Animado
-                  FadeTransition(
-                    opacity: _fadeAnim,
-                    child: Container(
-                      padding: EdgeInsets.only(left: 15, top: 10, bottom: 10),
-                      decoration: BoxDecoration(
-                        border: Border(left: BorderSide(color: Color(0xFFD4AF37), width: 2))
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text("Bienvenido al sistema,", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
-                          SizedBox(height: 5),
-                          Text(
-                            "Control Patrimonial",
-                            style: TextStyle(
-                              fontSize: 22,
-                              color: Colors.black87,
-                              fontWeight: FontWeight.w600,
-                              height: 1.2
-                            ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Título App con slide
+                      SlideTransition(
+                        position: _slideAnim,
+                        child: FadeTransition(
+                          opacity: _fadeAnim,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                height: 4,
+                                width: 50,
+                                color: Color(0xFFD4AF37), // Dorado Premium
+                                margin: EdgeInsets.only(bottom: 15),
+                              ),
+                              Text(
+                                "Verificaciones",
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  color: Colors.black54,
+                                  fontWeight: FontWeight.w300, 
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              Text(
+                                "SICOPA",
+                                style: TextStyle(
+                                  fontSize: 48,
+                                  color: Color(0xFFA62145),
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: -0.5,
+                                  height: 1.0
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                      
+                      SizedBox(height: 30),
+
+                      // Saludo Personalizado Animado
+                      FadeTransition(
+                        opacity: _fadeAnim,
+                        child: Container(
+                          padding: EdgeInsets.only(left: 15, top: 10, bottom: 10),
+                          decoration: BoxDecoration(
+                            border: Border(left: BorderSide(color: Color(0xFFD4AF37), width: 3))
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text("Bienvenido al sistema,", style: TextStyle(color: Colors.grey[700], fontSize: 13, letterSpacing: 0.5)),
+                              SizedBox(height: 5),
+                              Text(
+                                "Control Patrimonial",
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  color: Colors.black87,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                ),
 
-                  Spacer(flex: 3),
+                Spacer(flex: 2), // Espacio central flexible
 
-                  // Botones de Acción Premium
-                  Column(
+                // Botones de Acción
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 30.0),
+                  child: Column(
                     children: [
                       _buildPremiumButton(
                         text: "INICIAR SESIÓN",
                         isPrimary: true,
                         onTap: () => _navigateTo(LoginScreen()),
                       ),
-                      SizedBox(height: 20),
+                      SizedBox(height: 15),
                       _buildPremiumButton(
                         text: "MODO INVITADO",
                         isPrimary: false,
@@ -271,29 +282,26 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
                       ),
                     ],
                   ),
-                  
-                  SizedBox(height: 40),
-                ],
-              ),
+                ),
+                
+                SizedBox(height: 30),
+
+                // Footer Logo integrado en la columna (sin overlaps)
+                Center(
+                  child: Opacity(
+                     opacity: 0.8,
+                     child: Image.asset(
+                       'assets/images/logo.png', 
+                       height: 50,
+                       errorBuilder: (c, o, s) => Text("GOBIERNO DEL ESTADO DE MÉXICO", style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.grey)),
+                     ),
+                  ),
+                ),
+                
+                SizedBox(height: 20), // Padding final
+              ],
             ),
           ),
-          
-          // Pie de página oficial
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Opacity(
-                 opacity: 0.7,
-                 child: Image.asset(
-                   'assets/images/logo.png', 
-                   height: 60,
-                   errorBuilder: (c, o, s) => Text("GOBIERNO DEL ESTADO DE MÉXICO", style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.grey)),
-                 ),
-              ),
-            ),
-          )
         ],
       ),
     );
