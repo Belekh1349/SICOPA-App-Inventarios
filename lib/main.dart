@@ -4,9 +4,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'auth/login_screen.dart';
 import 'dashboard.dart';
 
+import 'firebase_options.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(SicopaApp());
 }
 
