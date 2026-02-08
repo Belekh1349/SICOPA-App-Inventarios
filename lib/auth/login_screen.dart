@@ -89,7 +89,22 @@ class _LoginScreenState extends State<LoginScreen> {
               // Logo y Título
               Hero(
                 tag: 'logo',
-                child: Image.asset('assets/images/logo_01.png', width: 150),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(40), // Bordes curveados
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1), 
+                        blurRadius: 20, 
+                        offset: Offset(0, 10)
+                      )
+                    ]
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(40),
+                    child: Image.asset('assets/images/logo_01.png', width: 300),
+                  ),
+                ),
               ),
               SizedBox(height: 20),
               Text(
