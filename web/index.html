@@ -2,64 +2,53 @@
 <html>
 
 <head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
   <base href="/">
 
   <meta charset="UTF-8">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Sistema de Control Patrimonial - SICOPA">
+  <meta name="description" content="Sistema de Control Patrimonial (SICOPA) del Estado de México.">
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="SICOPA">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
-  <title>SICOPA - Inventarios</title>
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png" />
+
+  <title>SICOPA - Estado de México</title>
   <link rel="manifest" href="manifest.json">
-  <style>
-    body {
-      background-color: #A62145;
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-    }
 
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: white;
-      font-family: sans-serif;
-    }
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js"></script>
 
-    .loader {
-      border: 4px solid rgba(255, 255, 255, 0.3);
-      border-radius: 50%;
-      border-top: 4px solid white;
-      width: 40px;
-      height: 40px;
-      animation: spin 1s linear infinite;
-      margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-      0% {
-        transform: rotate(0deg);
-      }
-
-      100% {
-        transform: rotate(360deg);
-      }
-    }
-  </style>
+  <script>
+    // Configuración de Firebase - REEMPLAZA CON TUS CREDENCIALES REALES
+    // Si usas flutterfire (que hace esto automáticamente en main.dart),
+    // estos scripts son opcionales pero buenos para redundancia en web pura.
+    // En Flutter Web con firebase_core ^2.0.0+, la inicialización suele
+    // hacerse en Dart. Este script puede ser útil si se necesita acceso previo.
+  </script>
 </head>
 
 <body>
-  <div class="loading-container">
-    <div class="loader"></div>
-    <div>Cargando SICOPA...</div>
-  </div>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 
