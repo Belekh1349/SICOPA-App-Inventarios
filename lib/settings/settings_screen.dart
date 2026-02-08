@@ -1,5 +1,6 @@
-
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/csv_import_service.dart';
 
 
@@ -53,30 +54,30 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: Icon(Icons.file_upload, color: Color(0xFFA62145)),
             title: Text("Importar Bienes (CSV)"),
             subtitle: Text("Cargar inventario desde archivo"),
-            onTap: () async {
-              try {
-                // Import service usage
-                // Assuming we make CsvImportService accessible or singleton
-                // For now, let's instantiate it or use a provider if available
-                // But since I didn't set up provider, I'll direct import.
-                // import 'package:sicopa/services/csv_import_service.dart'; // Need to add this import at top
-                
-                // Oops, I can't add import inside onTap. I need to add it at the top of file.
-                // I will add the call here and the import in a separate edit or use full path if possible (not possible in Dart).
-                
-                await _importCsv(context);
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al importar: $e")));
-              }
-            },
+            onTap: () async => await _importCsv(context),
+          ),
+          Divider(),
+          _buildHeader("Administración de Datos"),
+          ListTile(
+            leading: Icon(Icons.restart_alt, color: Colors.orange),
+            title: Text("Reiniciar Verificaciones"),
+            subtitle: Text("Regresar todos los bienes a 'POR UBICAR'"),
+            onTap: () => _confirmarReinicio(context),
+          ),
+          ListTile(
+            leading: Icon(Icons.delete_forever, color: Colors.red),
+            title: Text("Borrar Inventario"),
+            subtitle: Text("Eliminar TODOS los registros de bienes"),
+            onTap: () => _confirmarBorradoTotal(context),
           ),
           Divider(),
           _buildHeader("Usuario"),
           ListTile(
             leading: Icon(Icons.exit_to_app, color: Colors.grey),
             title: Text("Cerrar Sesión"),
-            onTap: () {
-              // Auth logout
+            onTap: () async {
+              await FirebaseAuth.instance.signOut();
+              Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
             },
           ),
         ],
@@ -186,12 +187,106 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       final service = CsvImportService();
-      await service.importBienesFromCsv();
+      final result = await service.importBienesFromCsv();
       Navigator.pop(context); // Close loading
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("¡Importación completada con éxito!"), backgroundColor: Colors.green));
+      
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("¡Importación completada! ${result['message']}"), 
+            backgroundColor: Colors.green
+          )
+        );
+      } else if (result['message'] != 'No se seleccionó ningún archivo') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: ${result['message']}"), 
+            backgroundColor: Colors.red
+          )
+        );
+      }
     } catch (e) {
       Navigator.pop(context); // Close loading
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al importar: $e"), backgroundColor: Colors.red));
+    }
+  }
+
+  void _confirmarReinicio(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("¿Reiniciar Verificaciones?"),
+        content: Text("Esta acción pondrá todos los bienes en estado 'POR UBICAR' y limpiará las fechas de verificación. Útil para comenzar un nuevo ciclo."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            onPressed: () async {
+              Navigator.pop(context);
+              _ejecutarAccionMasiva("reiniciar");
+            },
+            child: Text("Sí, Reiniciar", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmarBorradoTotal(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("¡CUIDADO! Borrado Total"),
+        content: Text("¿Estás seguro de eliminar TODOS los bienes del sistema? Esta acción es irreversible."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(context);
+              _ejecutarAccionMasiva("borrar");
+            },
+            child: Text("Borrar Todo", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _ejecutarAccionMasiva(String accion) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(child: CircularProgressIndicator(color: Color(0xFFA62145))),
+    );
+
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final collection = await FirebaseFirestore.instance.collection('bienes').get();
+      
+      for (var doc in collection.docs) {
+        if (accion == "reiniciar") {
+          batch.update(doc.reference, {
+            'status': 'POR_UBICAR',
+            'ultimaVerificacion': null,
+          });
+        } else if (accion == "borrar") {
+          batch.delete(doc.reference);
+        }
+      }
+      
+      await batch.commit();
+      Navigator.pop(context); // Close loading
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(accion == "reiniciar" ? "Se reiniciaron ${collection.docs.length} registros." : "Se eliminaron todos los registros."),
+          backgroundColor: Colors.green
+        )
+      );
+    } catch (e) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red));
     }
   }
 }

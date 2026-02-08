@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../bienes/lista_bienes_screen.dart';
+import '../verificacion_screen.dart';
+import 'servidores_screen.dart';
 
 class AreasScreen extends StatelessWidget {
   final String secretariaId;
@@ -21,6 +23,27 @@ class AreasScreen extends StatelessWidget {
         title: Text("Áreas de Adscripción"),
         backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.home),
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            tooltip: "Ir al Inicio",
+          ),
+          IconButton(
+            icon: Icon(Icons.qr_code_scanner),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => VerificacionScreen(
+                    filterUnidadNombre: unidadNombre.toUpperCase(),
+                  ),
+                ),
+              );
+            },
+            tooltip: "Verificar Bienes de esta Unidad",
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
@@ -65,9 +88,38 @@ class AreasScreen extends StatelessWidget {
                     child: Icon(Icons.people, color: Colors.amber[800]),
                   ),
                   title: Text(nombre, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  subtitle: _AreaProgressIndicator(areaNombre: nombre),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        icon: Icon(Icons.inventory_2, color: Color(0xFFA62145), size: 20),
+                        tooltip: "Ver Personal y Bienes",
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ServidoresScreen(
+                                filterAreaNombre: nombre,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.qr_code_scanner, color: Color(0xFFA62145), size: 20),
+                        tooltip: "Verificar bienes de esta área",
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => VerificacionScreen(
+                                filterAreaNombre: nombre.toUpperCase(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       IconButton(
                         icon: Icon(Icons.edit, color: Colors.blue, size: 20),
                         onPressed: () => _mostrarDialogoEditar(context, doc.id, nombre),
@@ -108,25 +160,33 @@ class AreasScreen extends StatelessWidget {
               Text(nombreArea, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               ListTile(
-                leading: Icon(Icons.list, color: Color(0xFFA62145)),
-                title: Text("Ver Bienes Asignados"),
+                leading: Icon(Icons.people, color: Color(0xFFA62145)),
+                title: Text("Ver Personal Asignado"),
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => ListaBienesScreen(filterAreaId: areaId, filterAreaNombre: nombreArea),
+                      builder: (_) => ServidoresScreen(
+                        filterAreaNombre: nombreArea,
+                      ),
                     ),
                   );
                 },
               ),
               ListTile(
-                leading: Icon(Icons.qr_code_scanner, color: Colors.blue),
-                title: Text("Verificar Área"),
+                leading: Icon(Icons.list, color: Colors.blue),
+                title: Text("Ver Todos los Bienes"),
                 onTap: () {
-                   Navigator.pop(context);
-                   // Aquí iría a la pantalla de verificación filtrada por área, si existiera
-                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Función de verificación por área en desarrollo")));
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => ListaBienesScreen(
+                        filterAreaNombre: nombreArea.toUpperCase(),
+                      ),
+                    ),
+                  );
                 },
               ),
             ],
@@ -232,6 +292,64 @@ class AreasScreen extends StatelessWidget {
             )
          ],
       ),
+    );
+  }
+}
+
+class _AreaProgressIndicator extends StatelessWidget {
+  final String areaNombre;
+
+  const _AreaProgressIndicator({required this.areaNombre});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('bienes')
+          .where('area', isEqualTo: areaNombre.toUpperCase())
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) return SizedBox.shrink();
+        
+        final docs = snapshot.data!.docs;
+        final total = docs.length;
+        if (total == 0) return Text("Sin bienes asignados", style: TextStyle(fontSize: 12));
+
+        final ubicados = docs.where((d) {
+          final data = d.data() as Map<String, dynamic>;
+          return data['status'] == 'UBICADO';
+        }).length;
+
+        final porcentaje = ubicados / total;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(height: 4),
+            Row(
+              children: [
+                Text("Progreso: $ubicados/$total", style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                SizedBox(width: 8),
+                Text("${(porcentaje * 100).toInt()}%", 
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFA62145))
+                ),
+              ],
+            ),
+            SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: LinearProgressIndicator(
+                value: porcentaje,
+                backgroundColor: Colors.grey[200],
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  porcentaje == 1.0 ? Colors.green : Color(0xFFA62145)
+                ),
+                minHeight: 4,
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

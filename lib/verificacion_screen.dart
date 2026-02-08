@@ -4,6 +4,19 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'widgets/bien_detail_sheet.dart';
 
 class VerificacionScreen extends StatefulWidget {
+  final String? filterServidorNombre;
+  final String? filterAreaNombre;
+  final String? filterUnidadNombre;
+  final String? filterSecretariaNombre;
+
+  const VerificacionScreen({
+    Key? key,
+    this.filterServidorNombre,
+    this.filterAreaNombre,
+    this.filterUnidadNombre,
+    this.filterSecretariaNombre,
+  }) : super(key: key);
+
   @override
   _VerificacionScreenState createState() => _VerificacionScreenState();
 }
@@ -31,85 +44,189 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
     super.dispose();
   }
 
-  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
-    if (_isProcessing) return;
-    
-    final barcode = capture.barcodes.firstOrNull;
-    if (barcode == null || barcode.rawValue == null) return;
-    
-    final code = barcode.rawValue!;
-    
-    // Evitar procesar el mismo código repetidamente
-    if (code == _lastScannedCode) return;
-    _lastScannedCode = code;
-    
+  Future<void> _buscarPorInventario(String idOInventario) async {
     setState(() {
       _isProcessing = true;
       _estatusActual = 'BUSCANDO';
     });
-    
+
     try {
-      // Buscar el bien en Firestore por ID o código de barras
-      QuerySnapshot query = await FirebaseFirestore.instance
+      // Intentamos buscar por varios campos
+      QuerySnapshot queryInv = await FirebaseFirestore.instance
           .collection('bienes')
-          .where('codigo', isEqualTo: code)
+          .where('inventario', isEqualTo: idOInventario)
           .limit(1)
           .get();
-      
-      // Si no se encuentra por código, buscar por ID
-      if (query.docs.isEmpty) {
-        final docRef = await FirebaseFirestore.instance
-            .collection('bienes')
-            .doc(code)
-            .get();
-        
-        if (docRef.exists) {
-          final data = docRef.data()!;
-          data['id'] = docRef.id;
-          setState(() {
-            _bienEncontrado = data;
-            _estatusActual = data['status'] ?? 'POR_UBICAR';
-          });
-          _showBienDetails();
-        } else {
-          setState(() {
-            _estatusActual = 'NO_ENCONTRADO';
-            _bienEncontrado = null;
-          });
-          _showNotFoundDialog(code);
-        }
-      } else {
-        final doc = query.docs.first;
+
+      if (queryInv.docs.isNotEmpty) {
+        final doc = queryInv.docs.first;
         final data = doc.data() as Map<String, dynamic>;
         data['id'] = doc.id;
         setState(() {
           _bienEncontrado = data;
           _estatusActual = data['status'] ?? 'POR_UBICAR';
         });
+        _validarFiltro(data);
         _showBienDetails();
+        return;
+      }
+
+      QuerySnapshot queryCod = await FirebaseFirestore.instance
+          .collection('bienes')
+          .where('codigo', isEqualTo: idOInventario)
+          .limit(1)
+          .get();
+
+      if (queryCod.docs.isNotEmpty) {
+        final doc = queryCod.docs.first;
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        setState(() {
+          _bienEncontrado = data;
+          _estatusActual = data['status'] ?? 'POR_UBICAR';
+        });
+        _validarFiltro(data);
+        _showBienDetails();
+        return;
+      }
+
+      final docRef = await FirebaseFirestore.instance.collection('bienes').doc(idOInventario).get();
+      if (docRef.exists) {
+        final data = docRef.data()!;
+        data['id'] = docRef.id;
+        setState(() {
+          _bienEncontrado = data;
+          _estatusActual = data['status'] ?? 'POR_UBICAR';
+        });
+        _validarFiltro(data);
+        _showBienDetails();
+      } else {
+        setState(() {
+          _estatusActual = 'NO_ENCONTRADO';
+          _bienEncontrado = null;
+        });
+        _showNotFoundDialog(idOInventario);
       }
     } catch (e) {
-      setState(() {
-        _estatusActual = 'ERROR';
-      });
+      setState(() => _estatusActual = 'ERROR');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al buscar bien: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     } finally {
       setState(() => _isProcessing = false);
-      
-      // Resetear después de un tiempo para permitir nuevos escaneos
-      Future.delayed(Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() => _lastScannedCode = null);
-        }
-      });
     }
+  }
+
+  bool _validarFiltro(Map<String, dynamic> data) {
+    bool passed = true;
+    String? errorMsg;
+
+    if (widget.filterServidorNombre != null) {
+      final actual = (data['servidorPublico'] ?? '').toString().toUpperCase();
+      final expected = widget.filterServidorNombre!.toUpperCase();
+      if (actual != expected) {
+        passed = false;
+        errorMsg = "Este bien pertenece a\n$actual\ny no a ${widget.filterServidorNombre}";
+      }
+    } else if (widget.filterAreaNombre != null) {
+      final actual = (data['area'] ?? '').toString().toUpperCase();
+      final expected = widget.filterAreaNombre!.toUpperCase();
+      if (actual != expected) {
+        passed = false;
+        errorMsg = "Este bien pertenece al área\n$actual\ny no a ${widget.filterAreaNombre}";
+      }
+    }
+    // Añadir más si es necesario
+
+    if (!passed) {
+      _showFilterWarning(errorMsg!);
+    }
+    return passed;
+  }
+
+  void _showFilterWarning(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.orange),
+            SizedBox(width: 10),
+            Text("Aviso de Ubicación"),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text("IGNORAR Y VER"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
+            onPressed: () {
+              Navigator.pop(context); // Cerrar diálogo
+              setState(() {
+                _bienEncontrado = null;
+                _estatusActual = 'ESPERANDO';
+              });
+            },
+            child: Text("CANCELAR"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _mostrarBusquedaManual() {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Búsqueda Manual"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: "Número de Inventario",
+            hintText: "Escribe el código o inventario...",
+            prefixIcon: Icon(Icons.edit),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+          ),
+          onSubmitted: (value) {
+            Navigator.pop(context);
+            if (value.isNotEmpty) _buscarPorInventario(value.trim());
+          },
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
+            onPressed: () {
+              Navigator.pop(context);
+              if (controller.text.isNotEmpty) _buscarPorInventario(controller.text.trim());
+            },
+            child: Text("Buscar"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onBarcodeDetected(BarcodeCapture capture) async {
+    if (_isProcessing) return;
+    final barcode = capture.barcodes.firstOrNull;
+    if (barcode == null || barcode.rawValue == null) return;
+    final code = barcode.rawValue!;
+    if (code == _lastScannedCode) return;
+    _lastScannedCode = code;
+    await _buscarPorInventario(code);
+    Future.delayed(Duration(seconds: 3), () {
+      if (mounted) setState(() => _lastScannedCode = null);
+    });
   }
 
   void _showBienDetails() {
     if (_bienEncontrado == null) return;
-    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -125,7 +242,6 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
   
   Future<void> _updateBienStatus(String newStatus) async {
     if (_bienEncontrado == null) return;
-    
     try {
       await FirebaseFirestore.instance
           .collection('bienes')
@@ -134,10 +250,7 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
             'status': newStatus,
             'ultimaVerificacion': FieldValue.serverTimestamp(),
           });
-      
       setState(() => _estatusActual = newStatus);
-      
-      // Registrar en historial de movimientos
       await FirebaseFirestore.instance.collection('movimientos').add({
         'bienId': _bienEncontrado!['id'],
         'descripcionBien': _bienEncontrado!['descripcion'] ?? 'Sin descripción',
@@ -146,7 +259,6 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
         'fecha': FieldValue.serverTimestamp(),
         'observaciones': 'Verificación por escaneo',
       });
-      
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Estado actualizado a $newStatus"), backgroundColor: Colors.green),
       );
@@ -192,19 +304,6 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text("Cerrar")),
-          ElevatedButton.icon(
-            icon: Icon(Icons.add),
-            label: Text("Registrar Nuevo"),
-            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
-            onPressed: () {
-              Navigator.pop(context);
-              // Navegar a pantalla de registro con el código pre-llenado
-              // Navigator.push(context, MaterialPageRoute(builder: (_) => RegistrarBienScreen(codigo: code)));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text("Función de registro pendiente de implementar")),
-              );
-            },
-          ),
         ],
       ),
     );
@@ -219,6 +318,16 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
         foregroundColor: Colors.white,
         actions: [
           IconButton(
+            icon: Icon(Icons.home),
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            tooltip: "Ir al Inicio",
+          ),
+          IconButton(
+            icon: Icon(Icons.keyboard),
+            tooltip: "Entrada Manual",
+            onPressed: _mostrarBusquedaManual,
+          ),
+          IconButton(
             icon: Icon(_cameraController?.torchEnabled == true ? Icons.flash_on : Icons.flash_off),
             onPressed: () => _cameraController?.toggleTorch(),
           ),
@@ -230,7 +339,27 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
       ),
       body: Column(
         children: [
-          // Área del Escáner
+        if (widget.filterServidorNombre != null || 
+            widget.filterAreaNombre != null || 
+            widget.filterUnidadNombre != null || 
+            widget.filterSecretariaNombre != null)
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+            color: Colors.amber.shade100,
+            child: Row(
+              children: [
+                Icon(Icons.person_pin, size: 16, color: Colors.amber.shade900),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    "Verificando: ${widget.filterServidorNombre ?? widget.filterAreaNombre ?? widget.filterUnidadNombre ?? widget.filterSecretariaNombre}",
+                    style: TextStyle(color: Colors.amber.shade900, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
           Expanded(
             flex: 3,
             child: Container(
@@ -246,7 +375,6 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
                     controller: _cameraController,
                     onDetect: _onBarcodeDetected,
                   ),
-                  // Overlay de escaneo
                   Center(
                     child: Container(
                       width: 250,
@@ -257,27 +385,17 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
                       ),
                     ),
                   ),
-                  // Indicador de procesamiento
                   if (_isProcessing)
                     Container(
                       color: Colors.black54,
                       child: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            CircularProgressIndicator(color: Colors.white),
-                            SizedBox(height: 15),
-                            Text("Buscando bien...", style: TextStyle(color: Colors.white, fontSize: 16)),
-                          ],
-                        ),
+                        child: CircularProgressIndicator(color: Colors.white),
                       ),
                     ),
                 ],
               ),
             ),
           ),
-          
-          // Panel de Estado
           Expanded(
             flex: 2,
             child: Container(
@@ -296,45 +414,37 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
                   SizedBox(height: 15),
                   _buildSemaforo(_estatusActual),
                   SizedBox(height: 20),
-                  
-                  if (_bienEncontrado != null) ...[
+                  if (_bienEncontrado != null)
                     Container(
                       padding: EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.inventory_2, color: Color(0xFFA62145)),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(_bienEncontrado!['descripcion'] ?? 'Sin descripción', 
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                Text("ID: ${_bienEncontrado!['id']}", style: TextStyle(fontSize: 12, color: Colors.grey)),
-                              ],
-                            ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.info_outline),
-                            onPressed: _showBienDetails,
-                          ),
-                        ],
+                      child: ListTile(
+                        leading: Icon(Icons.inventory_2, color: Color(0xFFA62145)),
+                        title: Text(_bienEncontrado!['descripcion'] ?? 'Sin descripción', 
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text("ID: ${_bienEncontrado!['id']}", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        onTap: _showBienDetails,
                       ),
-                    ),
-                  ] else
+                    )
+                  else
                     Text("Escanea un código QR o de barras", style: TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: Color(0xFFA62145),
+        icon: Icon(Icons.edit_note),
+        label: Text("Inspección Manual"),
+        onPressed: _mostrarBusquedaManual,
       ),
     );
   }
@@ -361,22 +471,12 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
           decoration: BoxDecoration(
             color: activo ? color : color.withOpacity(0.2),
             shape: BoxShape.circle,
-            boxShadow: activo 
-              ? [BoxShadow(color: color.withOpacity(0.5), blurRadius: 15, spreadRadius: 2)] 
-              : [],
             border: Border.all(color: activo ? Colors.white : Colors.transparent, width: 2),
           ),
           child: activo ? Icon(Icons.check, color: Colors.white, size: 24) : null,
         ),
         SizedBox(height: 6),
-        Text(
-          label, 
-          style: TextStyle(
-            fontSize: 9, 
-            fontWeight: activo ? FontWeight.bold : FontWeight.normal,
-            color: activo ? Colors.black87 : Colors.black38,
-          ),
-        ),
+        Text(label, style: TextStyle(fontSize: 9, color: activo ? Colors.black87 : Colors.black38)),
       ],
     );
   }

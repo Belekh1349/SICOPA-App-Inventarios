@@ -8,6 +8,7 @@ import 'admin/respaldo_screen.dart';
 import 'bienes/lista_bienes_screen.dart';
 import 'reportes/reportes_screen.dart';
 import 'estructura/secretarias_screen.dart';
+import 'estructura/servidores_screen.dart';
 import 'settings/settings_screen.dart';
 
 
@@ -250,6 +251,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         }),
                         _buildMenuCard(context, "Dependencias", Icons.domain, Color(0xFF5C6BC0), () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => SecretariasScreen()));
+                        }),
+                        _buildMenuCard(context, "Personal", Icons.people, Color(0xFF795548), () {
+                          Navigator.push(context, MaterialPageRoute(builder: (_) => ServidoresScreen()));
                         }),
                         _buildMenuCard(context, "Nuevo Movimiento", Icons.swap_horiz, Color(0xFFFF9800), () {
                           if (widget.isGuest) {

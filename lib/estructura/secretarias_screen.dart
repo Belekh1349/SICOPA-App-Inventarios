@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'unidades_screen.dart';
+import '../bienes/lista_bienes_screen.dart';
+import '../verificacion_screen.dart';
 
 class SecretariasScreen extends StatelessWidget {
   @override
@@ -10,6 +12,13 @@ class SecretariasScreen extends StatelessWidget {
         title: Text("Estructura - Secretarías"),
         backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(
+            icon: Icon(Icons.home),
+            onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
+            tooltip: "Ir al Inicio",
+          ),
+        ],
       ),
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance.collection('secretarias').orderBy('nombre').snapshots(),
@@ -50,6 +59,34 @@ class SecretariasScreen extends StatelessWidget {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      IconButton(
+                        icon: Icon(Icons.inventory_2, color: Color(0xFFA62145), size: 20),
+                        tooltip: "Ver Bienes",
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ListaBienesScreen(
+                                filterSecretariaNombre: nombre.toUpperCase(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.qr_code_scanner, color: Color(0xFFA62145), size: 20),
+                        tooltip: "Verificar Bienes",
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => VerificacionScreen(
+                                filterSecretariaNombre: nombre.toUpperCase(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
                       IconButton(
                         icon: Icon(Icons.edit, color: Colors.blue, size: 20),
                         onPressed: () => _mostrarDialogoEditar(context, doc.id, nombre),

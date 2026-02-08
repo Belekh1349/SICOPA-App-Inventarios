@@ -5,8 +5,17 @@ import '../widgets/bien_detail_sheet.dart';
 class ListaBienesScreen extends StatefulWidget {
   final String? filterAreaId;
   final String? filterAreaNombre;
+  final String? filterSecretariaNombre;
+  final String? filterUnidadNombre;
+  final String? filterServidorNombre;
 
-  ListaBienesScreen({this.filterAreaId, this.filterAreaNombre});
+  ListaBienesScreen({
+    this.filterAreaId, 
+    this.filterAreaNombre,
+    this.filterSecretariaNombre,
+    this.filterUnidadNombre,
+    this.filterServidorNombre,
+  });
 
   @override
   _ListaBienesScreenState createState() => _ListaBienesScreenState();
@@ -20,13 +29,25 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   @override
   Widget build(BuildContext context) {
     String title = "Lista de Bienes";
-    if (widget.filterAreaNombre != null) {
-      title = "Bienes: ${widget.filterAreaNombre}";
+    String bannerText = "";
+
+    if (widget.filterServidorNombre != null) {
+      title = "Bienes de: ${widget.filterServidorNombre}";
+      bannerText = "Servidor: ${widget.filterServidorNombre}";
+    } else if (widget.filterAreaNombre != null) {
+      title = "Área: ${widget.filterAreaNombre}";
+      bannerText = "Área: ${widget.filterAreaNombre}";
+    } else if (widget.filterUnidadNombre != null) {
+      title = "Unidad: ${widget.filterUnidadNombre}";
+      bannerText = "Unidad: ${widget.filterUnidadNombre}";
+    } else if (widget.filterSecretariaNombre != null) {
+      title = "Secretaría: ${widget.filterSecretariaNombre}";
+      bannerText = "Secretaría: ${widget.filterSecretariaNombre}";
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(title, style: TextStyle(fontSize: 18)),
+        title: Text(title, style: TextStyle(fontSize: 16)),
         backgroundColor: Color(0xFFA62145),
         foregroundColor: Colors.white,
         actions: [
@@ -163,15 +184,44 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                   );
                 }
                 
-                return ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: filteredDocs.length,
-                  itemBuilder: (context, index) {
-                    final doc = filteredDocs[index];
-                    final data = doc.data() as Map<String, dynamic>;
-                    data['id'] = doc.id;
-                    return _buildBienCard(data);
-                  },
+                return Column( // Wrap with Column to include the banner
+                  children: [
+                    // Banner informativo si hay filtros
+                    if (bannerText.isNotEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                        color: Color(0xFFA62145).withOpacity(0.1),
+                        child: Row(
+                          children: [
+                            Icon(Icons.filter_alt, size: 16, color: Color(0xFFA62145)),
+                            SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                "Filtrado por: $bannerText",
+                                style: TextStyle(color: Color(0xFFA62145), fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                            ),
+                            IconButton(
+                              icon: Icon(Icons.close, size: 16, color: Color(0xFFA62145)),
+                              onPressed: () => Navigator.pop(context),
+                            )
+                          ],
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.builder(
+                        padding: EdgeInsets.all(16),
+                        itemCount: filteredDocs.length,
+                        itemBuilder: (context, index) {
+                          final doc = filteredDocs[index];
+                          final data = doc.data() as Map<String, dynamic>;
+                          data['id'] = doc.id;
+                          return _buildBienCard(data);
+                        },
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -190,24 +240,43 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   Stream<QuerySnapshot> _buildQuery() {
     Query query = FirebaseFirestore.instance.collection('bienes');
     
-    if (widget.filterAreaId != null) {
-      // Filtrar por una propiedad 'areaId' que debe existir en el documento de bienes
-      // Si la colección 'bienes' no tiene este campo, no devolverá nada, lo cual es correcto hasta que se asignen.
-      // Ojo: Firebase requiere indices compuestos si filtramos por areaId y status/orderBy descripcion
-      // Por simplicidad, filtramos primero por areaId
+    // Prioridad de filtros
+    if (widget.filterServidorNombre != null) {
+      // Intentamos filtrar por el nombre que viene (ya debería venir en Mayúsculas desde la navegación)
+      // Nota: Firestore no soporta 'OR' fácilmente en consultas simples sin índices específicos,
+      // pero usaremos 'servidorPublico' como principal. 
+      // Si la navegación ya manda el campo correcto, esto funcionará.
+      query = query.where('servidorPublico', isEqualTo: widget.filterServidorNombre!.toUpperCase());
+    } else if (widget.filterAreaId != null) {
       query = query.where('areaId', isEqualTo: widget.filterAreaId);
+    } else if (widget.filterAreaNombre != null) {
+      query = query.where('area', isEqualTo: widget.filterAreaNombre!.toUpperCase());
+    } else if (widget.filterUnidadNombre != null) {
+      query = query.where('unidadAdministrativa', isEqualTo: widget.filterUnidadNombre!.toUpperCase());
+    } else if (widget.filterSecretariaNombre != null) {
+      query = query.where('secretaria', isEqualTo: widget.filterSecretariaNombre!.toUpperCase());
     }
     
     if (_filterStatus != 'TODOS') {
       query = query.where('status', isEqualTo: _filterStatus);
     }
     
-    return query.orderBy('descripcion').snapshots();
+    return query.snapshots();
   }
   
   Widget _buildBienCard(Map<String, dynamic> bien) {
     final status = bien['status'] ?? 'POR_UBICAR';
+    final resguardatario = bien['servidorPublico'] ?? bien['resguardatario'] ?? 'Sin asignar';
+    final secretaria = bien['secretaria'] ?? '';
+    final unidad = bien['unidadAdministrativa'] ?? '';
+    final area = bien['area'] ?? '';
+    final inventario = bien['inventario'] ?? bien['id'] ?? 'N/A';
     
+    String hierarchy = "";
+    if (secretaria.isNotEmpty) hierarchy += secretaria;
+    if (unidad.isNotEmpty) hierarchy += (hierarchy.isEmpty ? "" : " > ") + unidad;
+    if (area.isNotEmpty) hierarchy += (hierarchy.isEmpty ? "" : " > ") + area;
+
     return Card(
       margin: EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -225,15 +294,16 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
         child: Padding(
           padding: EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 50,
-                height: 50,
+                width: 45,
+                height: 45,
                 decoration: BoxDecoration(
                   color: _getStatusColor(status).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 28),
+                child: Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 24),
               ),
               SizedBox(width: 15),
               Expanded(
@@ -242,19 +312,28 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                   children: [
                     Text(
                       bien['descripcion'] ?? 'Sin descripción',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-                      maxLines: 1,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 4),
+                    if (hierarchy.isNotEmpty) ...[
+                      SizedBox(height: 4),
+                      Text(
+                        hierarchy,
+                        style: TextStyle(color: Color(0xFFA62145), fontSize: 11, fontWeight: FontWeight.w500),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    SizedBox(height: 6),
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 14, color: Colors.grey),
+                        Icon(Icons.person, size: 12, color: Colors.grey),
                         SizedBox(width: 4),
                         Expanded(
                           child: Text(
-                            bien['ubicacion'] ?? 'Sin ubicación',
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
+                            resguardatario,
+                            style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -264,31 +343,43 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                     SizedBox(height: 4),
                     Row(
                       children: [
-                        Icon(Icons.tag, size: 14, color: Colors.grey),
+                        Icon(Icons.tag, size: 12, color: Colors.grey),
                         SizedBox(width: 4),
                         Text(
-                          bien['codigo'] ?? bien['id'] ?? 'N/A',
+                          "Inv: $inventario",
                           style: TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
                         ),
+                        if (bien['nic'] != null) ...[
+                          Text(" | ", style: TextStyle(color: Colors.grey, fontSize: 11)),
+                          Text(
+                            "NIC: ${bien['nic']}",
+                            style: TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
+                          ),
+                        ]
                       ],
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: _getStatusColor(status),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  _getStatusShortLabel(status),
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
+              SizedBox(width: 8),
+              _buildStatusBadge(status),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: _getStatusColor(status),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        _getStatusShortLabel(status),
+        style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold),
       ),
     );
   }
@@ -402,5 +493,145 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
       case 'NO_UBICADO': return 'No Ubic.';
       default: return 'Por Ubic.';
     }
+  }
+}
+
+class BienDetailSheet extends StatelessWidget {
+  final Map<String, dynamic> bien;
+  
+  const BienDetailSheet({Key? key, required this.bien}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 10, 20, 20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 40,
+            height: 5,
+            decoration: BoxDecoration(
+              color: Colors.grey[300],
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  bien['descripcion'] ?? 'Sin descripción',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ),
+              _buildStatusIndicator(bien['status'] ?? 'POR_UBICAR'),
+            ],
+          ),
+          Divider(height: 30),
+          Expanded(
+            child: ListView(
+              children: [
+                _buildInfoSection("Estructura Administrativa", [
+                  _infoRow(Icons.account_balance, "Secretaría", bien['secretaria']),
+                  _infoRow(Icons.business, "Unidad", bien['unidadAdministrativa']),
+                  _infoRow(Icons.location_on, "Área", bien['area']),
+                ]),
+                _buildInfoSection("Asignación", [
+                  _infoRow(Icons.person, "Resguardatario", bien['servidorPublico']),
+                  _infoRow(Icons.tag, "Inventario", bien['inventario']),
+                  _infoRow(Icons.confirmation_number, "NIC", bien['nic']),
+                ]),
+                _buildInfoSection("Detalles del Bien", [
+                  _infoRow(Icons.info_outline, "Estado", bien['estadoUso']),
+                  _infoRow(Icons.category, "Génerico", bien['activoGenerico']),
+                  _infoRow(Icons.branding_watermark, "Marca", bien['marca']),
+                  _infoRow(Icons.style, "Modelo", bien['modelo']),
+                  _infoRow(Icons.format_list_numbered, "Serie", bien['serie']),
+                ]),
+                _buildInfoSection("Características", [
+                  _infoRow(Icons.color_lens, "Color", bien['color']),
+                  _infoRow(Icons.layers, "Material", bien['material']),
+                  _infoRow(Icons.text_fields, "Otros", bien['caracteristicas']),
+                ]),
+                _buildInfoSection("Contable", [
+                  _infoRow(Icons.attach_money, "Valor", bien['valor']?.toString()),
+                  _infoRow(Icons.calendar_today, "Adquisición", _formatDate(bien['fechaAdquisicion'])),
+                ]),
+              ],
+            ),
+          ),
+          SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Color(0xFFA62145),
+                padding: EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cerrar", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoSection(String title, List<Widget> children) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8.0),
+          child: Text(title.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFA62145))),
+        ),
+        ...children,
+        SizedBox(height: 10),
+      ],
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, dynamic value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 16, color: Colors.grey),
+          SizedBox(width: 8),
+          Text("$label: ", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
+          Expanded(child: Text(value?.toString() ?? 'N/A', style: TextStyle(fontSize: 13, color: Colors.black87))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusIndicator(String status) {
+    Color color;
+    switch (status) {
+      case 'UBICADO': color = Colors.green; break;
+      case 'MOVIMIENTO': color = Colors.blue; break;
+      case 'NO_UBICADO': color = Colors.red; break;
+      default: color = Colors.amber;
+    }
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: color)),
+      child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return "N/A";
+    if (date is Timestamp) {
+      final dt = date.toDate();
+      return "${dt.day}/${dt.month}/${dt.year}";
+    }
+    return date.toString();
   }
 }

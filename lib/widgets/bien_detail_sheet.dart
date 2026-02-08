@@ -1,19 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-class BienDetailSheet extends StatelessWidget {
+class BienDetailSheet extends StatefulWidget {
   final Map<String, dynamic> bien;
   final Function(String)? onStatusChanged;
+  final bool showVerifyOption;
   
   const BienDetailSheet({
     Key? key,
     required this.bien,
     this.onStatusChanged,
+    this.showVerifyOption = true,
   }) : super(key: key);
 
   @override
+  State<BienDetailSheet> createState() => _BienDetailSheetState();
+}
+
+class _BienDetailSheetState extends State<BienDetailSheet> {
+  late String status;
+  bool isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    status = widget.bien['status'] ?? 'POR_UBICAR';
+  }
+
+  Future<void> _updateStatus(String newStatus) async {
+    setState(() => isUpdating = true);
+    try {
+      final docId = widget.bien['id_doc'] ?? widget.bien['id'];
+      if (docId != null) {
+        await FirebaseFirestore.instance.collection('bienes').doc(docId).update({
+          'status': newStatus,
+          'ultimaVerificacion': FieldValue.serverTimestamp(),
+          'fechaSincronizacion': FieldValue.serverTimestamp(),
+        });
+        
+        setState(() => status = newStatus);
+        widget.onStatusChanged?.call(newStatus);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Estado actualizado a $newStatus"),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 1),
+          )
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al actualizar: $e"), backgroundColor: Colors.red)
+      );
+    } finally {
+      setState(() => isUpdating = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final status = bien['status'] ?? 'POR_UBICAR';
     
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
@@ -60,22 +106,30 @@ class BienDetailSheet extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        bien['descripcion'] ?? 'Sin descripción',
+                        widget.bien['descripcion'] ?? 'Sin descripción',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
                       SizedBox(height: 4),
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _getStatusColor(status),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _getStatusLabel(status),
-                          style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            padding: EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: _getStatusColor(status),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              _getStatusLabel(status),
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (isUpdating) ...[
+                            SizedBox(width: 10),
+                            SizedBox(width: 15, height: 15, child: CircularProgressIndicator(strokeWidth: 2, color: _getStatusColor(status))),
+                          ]
+                        ],
                       ),
                     ],
                   ),
@@ -90,18 +144,19 @@ class BienDetailSheet extends StatelessWidget {
               padding: EdgeInsets.all(20),
               child: Column(
                 children: [
-                  _buildDetailRow("ID Patrimonial", bien['id'] ?? 'N/A', Icons.tag),
-                  _buildDetailRow("Código de Barras", bien['codigo'] ?? 'N/A', Icons.qr_code),
-                  _buildDetailRow("Ubicación", bien['ubicacion'] ?? 'Sin ubicación', Icons.location_on),
-                  _buildDetailRow("Resguardatario", bien['resguardatario'] ?? 'Sin asignar', Icons.person),
-                  _buildDetailRow("Área", bien['area'] ?? 'N/A', Icons.business),
-                  _buildDetailRow("Valor", bien['valor'] != null ? '\$${bien['valor']}' : 'N/A', Icons.attach_money),
-                  if (bien['observaciones'] != null && bien['observaciones'].toString().isNotEmpty)
-                    _buildDetailRow("Observaciones", bien['observaciones'], Icons.notes),
-                  if (bien['ultimaVerificacion'] != null)
+                  _buildDetailRow("Inventario (CSV)", widget.bien['inventario'] ?? 'N/A', Icons.inventory),
+                  _buildDetailRow("ID Patrimonial", widget.bien['id'] ?? 'N/A', Icons.tag),
+                  _buildDetailRow("Código de Barras", widget.bien['codigo'] ?? 'N/A', Icons.qr_code),
+                  _buildDetailRow("Ubicación", widget.bien['ubicacion'] ?? 'Sin ubicación', Icons.location_on),
+                  _buildDetailRow("Resguardatario", widget.bien['servidorPublico'] ?? widget.bien['resguardatario'] ?? 'Sin asignar', Icons.person),
+                  _buildDetailRow("Área", widget.bien['area'] ?? 'N/A', Icons.business),
+                  _buildDetailRow("Valor", widget.bien['valor'] != null ? '\$${widget.bien['valor']}' : 'N/A', Icons.attach_money),
+                  if (widget.bien['observaciones'] != null && widget.bien['observaciones'].toString().isNotEmpty)
+                    _buildDetailRow("Observaciones", widget.bien['observaciones'], Icons.notes),
+                  if (widget.bien['ultimaVerificacion'] != null)
                     _buildDetailRow(
                       "Última Verificación", 
-                      _formatTimestamp(bien['ultimaVerificacion']), 
+                      _formatTimestamp(widget.bien['ultimaVerificacion']), 
                       Icons.access_time
                     ),
                 ],
@@ -123,12 +178,31 @@ class BienDetailSheet extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(child: _buildStatusButton(context, "UBICADO", Colors.green, status)),
-                    SizedBox(width: 10),
+                    SizedBox(width: 8),
                     Expanded(child: _buildStatusButton(context, "MOVIMIENTO", Colors.blue, status)),
-                    SizedBox(width: 10),
+                    SizedBox(width: 8),
+                    Expanded(child: _buildStatusButton(context, "POR_UBICAR", Colors.amber, status)),
+                    SizedBox(width: 8),
                     Expanded(child: _buildStatusButton(context, "NO_UBICADO", Colors.red, status)),
                   ],
                 ),
+                if (widget.showVerifyOption) ...[
+                  SizedBox(height: 15),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      icon: Icon(Icons.verified, color: Colors.white),
+                      label: Text("VERIFICAR AHORA", style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.1)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFFA62145),
+                        foregroundColor: Colors.white,
+                        padding: EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: isUpdating ? null : () => _updateStatus("UBICADO"),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -177,9 +251,8 @@ class BienDetailSheet extends StatelessWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         elevation: isActive ? 4 : 0,
       ),
-      onPressed: isActive ? null : () {
-        onStatusChanged?.call(status);
-        Navigator.pop(context);
+      onPressed: (isActive || isUpdating) ? null : () {
+        _updateStatus(status);
       },
       child: Text(_getStatusShortLabel(status), style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
     );
