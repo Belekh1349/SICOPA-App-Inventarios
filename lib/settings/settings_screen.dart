@@ -1,4 +1,7 @@
+
 import 'package:flutter/material.dart';
+import '../services/csv_import_service.dart';
+
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -44,6 +47,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () {
               // Lógica de sincronización
               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Sincronizando con Firestore...")));
+            },
+          ),
+          ListTile(
+            leading: Icon(Icons.file_upload, color: Color(0xFFA62145)),
+            title: Text("Importar Bienes (CSV)"),
+            subtitle: Text("Cargar inventario desde archivo"),
+            onTap: () async {
+              try {
+                // Import service usage
+                // Assuming we make CsvImportService accessible or singleton
+                // For now, let's instantiate it or use a provider if available
+                // But since I didn't set up provider, I'll direct import.
+                // import 'package:sicopa/services/csv_import_service.dart'; // Need to add this import at top
+                
+                // Oops, I can't add import inside onTap. I need to add it at the top of file.
+                // I will add the call here and the import in a separate edit or use full path if possible (not possible in Dart).
+                
+                await _importCsv(context);
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al importar: $e")));
+              }
             },
           ),
           Divider(),
@@ -131,5 +155,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _importCsv(BuildContext context) async {
+    // Show confirmation dialog
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Importar CSV"),
+        content: Text("¿Deseas importar bienes desde un archivo CSV? Asegúrate que siga la estructura correcta:\n\nSECRETARÍA, UNIDAD ADMINISTRATIVA, ÁREA, ..."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145), foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(context, true),
+            child: Text("Importar"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(child: CircularProgressIndicator(color: Color(0xFFA62145))),
+    );
+
+    try {
+      final service = CsvImportService();
+      await service.importBienesFromCsv();
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("¡Importación completada con éxito!"), backgroundColor: Colors.green));
+    } catch (e) {
+      Navigator.pop(context); // Close loading
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error al importar: $e"), backgroundColor: Colors.red));
+    }
   }
 }
