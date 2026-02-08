@@ -29,7 +29,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                Position some (
+                Positioned(
                   top: 80,
                   left: 0,
                   right: 0,
