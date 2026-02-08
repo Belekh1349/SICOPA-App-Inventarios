@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'auth/login_screen.dart';
@@ -9,26 +8,9 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // Forzar configuración Web explícita para depurar
-  if (kIsWeb) {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyACAmvU389CQGhuHz8bnY0I52ltB8SP5Co",
-        authDomain: "sicopa-verificaciones.firebaseapp.com",
-        projectId: "sicopa-verificaciones",
-        storageBucket: "sicopa-verificaciones.firebasestorage.app",
-        messagingSenderId: "141170934173",
-        appId: "1:141170934173:web:3e9577d7df5edf14956f74",
-        measurementId: "G-QNZLJTZSTX"
-      ),
-    );
-  } else {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-  }
-  
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(SicopaApp());
 }
 
