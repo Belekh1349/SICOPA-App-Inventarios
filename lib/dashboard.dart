@@ -231,10 +231,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     GridView.count(
                       shrinkWrap: true,
                       physics: NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 15,
-                      mainAxisSpacing: 15,
-                      childAspectRatio: 1.1,
+                      crossAxisCount: 3, // Más columnas para hacerlos más pequeños
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 0.9,
                       children: [
                         _buildMenuCard(context, "Verificar Bien", Icons.qr_code_scanner, Color(0xFF1976D2), () {
                           Navigator.push(context, MaterialPageRoute(builder: (_) => VerificacionScreen()));
@@ -301,12 +301,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                padding: EdgeInsets.all(14),
+                padding: EdgeInsets.all(10), // Padding reducido
                 decoration: BoxDecoration(
                   color: color.withOpacity(0.1),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, size: 32, color: color),
+                child: Icon(icon, size: 24, color: color), // Icono más pequeño
               ),
               SizedBox(height: 12),
               Text(titulo, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13), textAlign: TextAlign.center),
