@@ -44,12 +44,13 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDBTqXpRATfNBKdJSTcpD0QqCXJ42MM_qw',
-    appId: '1:141170934173:web:placeholder', // TODO: Reemplazar con el App ID real de Web si falla
+    apiKey: 'AIzaSyACAmvU389CQGhuHz8bnY0I52ltB8SP5Co',
+    appId: '1:141170934173:web:3e9577d7df5edf14956f74',
     messagingSenderId: '141170934173',
     projectId: 'sicopa-verificaciones',
     authDomain: 'sicopa-verificaciones.firebaseapp.com',
     storageBucket: 'sicopa-verificaciones.firebasestorage.app',
+    measurementId: 'G-QNZLJTZSTX',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
