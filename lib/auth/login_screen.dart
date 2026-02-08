@@ -123,7 +123,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         Text("INGRESO ADMIN (DEV)", 
                           style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)
                         ),
-                        Text("SICOPA v1.0", style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text("SICOPA v2 (PROD)", style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
