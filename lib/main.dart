@@ -138,22 +138,28 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
           SafeArea(
             child: Column(
               children: [
-                SizedBox(height: 60),
+                SizedBox(height: 40),
                 Center(
                   child: Hero(
                     tag: 'logo',
                     child: Container(
-                      padding: EdgeInsets.all(25),
+                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        shape: BoxShape.circle,
+                        borderRadius: BorderRadius.circular(20),
                         boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 15, offset: Offset(0, 8))],
                       ),
-                      child: Icon(Icons.account_balance, size: 70, color: Color(0xFFA62145)),
+                      child: Column(
+                        children: [
+                          Icon(Icons.account_balance, size: 50, color: Color(0xFFA62145)),
+                          SizedBox(height: 8),
+                          Text("GEM", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFA62145))),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                SizedBox(height: 30),
+                SizedBox(height: 25),
                 Text(
                   "SICOPA",
                   style: TextStyle(
@@ -227,9 +233,45 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
                     ],
                   ),
                 ),
-                SizedBox(height: 40),
+                SizedBox(height: 30),
                 
-                Text("Gobierno del Estado de México", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                // Logo Gobierno del Estado de México
+                Container(
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                  margin: EdgeInsets.symmetric(horizontal: 40),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFA62145),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.account_balance, color: Colors.white, size: 24),
+                      SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Gobierno del Estado de", style: TextStyle(color: Colors.white70, fontSize: 10)),
+                          Text("MÉXICO", style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      Container(
+                        height: 30,
+                        width: 1,
+                        margin: EdgeInsets.symmetric(horizontal: 15),
+                        color: Colors.white38,
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text("Estado de", style: TextStyle(color: Colors.white70, fontSize: 10)),
+                          Text("MÉXICO", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 14, fontWeight: FontWeight.bold)),
+                          Text("¡El poder de servir!", style: TextStyle(color: Color(0xFFD4AF37), fontSize: 9, fontStyle: FontStyle.italic)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
                 SizedBox(height: 20),
               ],
             ),
