@@ -120,7 +120,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         SizedBox(height: 15),
-                        Text("ACCESO SEGURO", 
+                        Text("INGRESO ADMIN (DEV)", 
                           style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 2)
                         ),
                         Text("SICOPA v1.0", style: TextStyle(color: Colors.white70, fontSize: 12)),
@@ -222,7 +222,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     
-                    SizedBox(height: 30),
+                    // Botón temporal visible
+                    TextButton(
+                      onPressed: _showRegisterDialog,
+                      child: Text("Registrar Admin (Inicial)", style: TextStyle(color: Colors.grey, fontSize: 12)),
+                    ),
+
+                    SizedBox(height: 20),
                     Text("¿No tienes cuenta?", style: TextStyle(color: Colors.grey)),
                     TextButton(
                       onPressed: () {
@@ -231,11 +237,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                       },
                       child: Text("Solicitar acceso", style: TextStyle(color: Color(0xFFA62145), fontWeight: FontWeight.bold)),
-                    ),
-                    SizedBox(height: 10),
-                    TextButton(
-                      onPressed: _showRegisterDialog,
-                      child: Text("Registrar Admin (Inicial)", style: TextStyle(color: Colors.grey, fontSize: 12)),
                     ),
                   ],
                 ),
