@@ -8,6 +8,8 @@ import 'admin/respaldo_screen.dart';
 import 'bienes/lista_bienes_screen.dart';
 import 'reportes/reportes_screen.dart';
 import 'estructura/secretarias_screen.dart';
+import 'settings/settings_screen.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   final bool isGuest;
@@ -115,6 +117,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
         elevation: 0,
         automaticallyImplyLeading: false,
         actions: [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => SettingsScreen()));
+            },
+          ),
           IconButton(
             icon: Icon(Icons.refresh),
             onPressed: () {

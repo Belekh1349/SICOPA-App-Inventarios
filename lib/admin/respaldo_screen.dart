@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
 import 'dart:convert';
+import '../services/csv_import_service.dart';
+
 
 class RespaldoScreen extends StatefulWidget {
   @override
@@ -60,7 +62,7 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
             SizedBox(height: 25),
             
             // Formato esperado
-            Text("Formato del archivo CSV", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Formato del archivo CSV (Estructura requerida)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             SizedBox(height: 10),
             Container(
               padding: EdgeInsets.all(15),
@@ -71,14 +73,20 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Columnas requeridas:", style: TextStyle(fontWeight: FontWeight.w500)),
+                  Text("Columnas requeridas en este orden:", style: TextStyle(fontWeight: FontWeight.w500)),
                   SizedBox(height: 10),
-                  _buildColumnInfo("codigo", "Código de barras o inventario"),
-                  _buildColumnInfo("descripcion", "Descripción del bien"),
-                  _buildColumnInfo("ubicacion", "Ubicación física"),
-                  _buildColumnInfo("resguardatario", "Nombre del resguardatario"),
-                  _buildColumnInfo("area", "Área o departamento (opcional)"),
-                  _buildColumnInfo("valor", "Valor en pesos (opcional)"),
+                  _buildColumnInfo("1", "SECRETARÍA"),
+                  _buildColumnInfo("2", "UNIDAD ADMINISTRATIVA"),
+                  _buildColumnInfo("3", "ÁREA"),
+                  _buildColumnInfo("4", "SERVIDOR PÚBLICO"),
+                  _buildColumnInfo("5", "NIC"),
+                  _buildColumnInfo("6", "INVENTARIO"),
+                  _buildColumnInfo("7", "BIEN MUEBLE (Descripción)"),
+                  _buildColumnInfo("8", "ESTADO DE USO"),
+                  _buildColumnInfo("9", "FECHA ADQ"),
+                  _buildColumnInfo("10", "VALOR"),
+                  _buildColumnInfo("11", "SALARIO UMAS"),
+                  _buildColumnInfo("...", "Y el resto de características..."),
                 ],
               ),
             ),
@@ -86,7 +94,7 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
             SizedBox(height: 25),
             
             // Ejemplo CSV
-            Text("Ejemplo", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Ejemplo de Cabecera", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             SizedBox(height: 10),
             Container(
               padding: EdgeInsets.all(12),
@@ -97,9 +105,8 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Text(
-                  'codigo,descripcion,ubicacion,resguardatario,area,valor\n'
-                  'INV-001,Computadora Dell,Edificio A,Juan Pérez,Sistemas,15000\n'
-                  'INV-002,Escritorio ejecutivo,Oficina 201,María López,Administración,5000',
+                  'SECRETARÍA,UNIDAD ADMINISTRATIVA,ÁREA,SERVIDOR PÚBLICO,NIC,INVENTARIO,BIEN MUEBLE,ESTADO DE USO,...\n'
+                  'SECRETARIA DE FINANZAS,DIRECCIÓN GENERAL,DEPARTAMENTO A,JUAN PEREZ,NIC001,INV123,ESCRITORIO,BUENO,...',
                   style: TextStyle(color: Colors.green, fontFamily: 'monospace', fontSize: 12),
                 ),
               ),
@@ -120,15 +127,9 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
                 child: Column(
                   children: [
                     if (_isLoading)
-                      LinearProgressIndicator(
-                        value: _totalCount > 0 ? _processedCount / _totalCount : null,
-                        backgroundColor: Colors.blue.shade100,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-                      ),
+                      CircularProgressIndicator(color: Color(0xFFA62145)),
                     SizedBox(height: 10),
-                    Text(_statusMessage!, textAlign: TextAlign.center),
-                    if (_isLoading && _totalCount > 0)
-                      Text("$_processedCount / $_totalCount", style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(_statusMessage!, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
@@ -145,8 +146,8 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
                   elevation: 3,
                 ),
                 icon: Icon(Icons.upload_file),
-                label: Text("SELECCIONAR ARCHIVO CSV", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                onPressed: _isLoading ? null : _selectAndProcessFile,
+                label: Text("SELECCIONAR Y CARGAR CSV", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                onPressed: _isLoading ? null : _importarConServicio,
               ),
             ),
             
@@ -156,12 +157,18 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
             Center(
               child: TextButton.icon(
                 icon: Icon(Icons.download),
-                label: Text("Descargar plantilla CSV"),
+                label: Text("Ver estructura completa"),
                 onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text("Descargando plantilla...")),
-                  );
-                  // Implementar descarga de plantilla
+                   showDialog(
+                     context: context,
+                     builder: (context) => AlertDialog(
+                       title: Text("Columnas en orden"),
+                       content: SingleChildScrollView(
+                         child: Text("1. SECRETARÍA\n2. UNIDAD ADMINISTRATIVA\n3. ÁREA\n4. SERVIDOR PÚBLICO\n5. NIC\n6. INVENTARIO\n7. BIEN MUEBLE\n8. ESTADO DE USO\n9. FECHA ADQ\n10. VALOR\n11. SALARIO UMAS\n12. CARACTERISTICAS\n13. MATERIAL\n14. COLOR\n15. MARCA\n16. MODELO\n17. SERIE\n18. ACTIVO GENÉRICO"),
+                       ),
+                       actions: [TextButton(onPressed: () => Navigator.pop(context), child: Text("Cerrar"))],
+                     ),
+                   );
                 },
               ),
             ),
@@ -318,6 +325,31 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error al procesar archivo: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _importarConServicio() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage = "Cargando bienes...";
+    });
+
+    try {
+      final service = CsvImportService();
+      await service.importBienesFromCsv();
+      
+      setState(() {
+        _isLoading = false;
+        _statusMessage = "✅ Importación completada con éxito";
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = "❌ Error en la importación";
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
       );
     }
   }
