@@ -47,7 +47,20 @@ class SecretariasScreen extends StatelessWidget {
                     child: Icon(Icons.account_balance, color: Color(0xFFA62145)),
                   ),
                   title: Text(nombre, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                  trailing: Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: Icon(Icons.edit, color: Colors.blue, size: 20),
+                        onPressed: () => _mostrarDialogoEditar(context, doc.id, nombre),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red, size: 20),
+                        onPressed: () => _confirmarEliminar(context, doc.id),
+                      ),
+                      Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -102,6 +115,57 @@ class SecretariasScreen extends StatelessWidget {
             child: Text("Guardar", style: TextStyle(color: Colors.white)),
           ),
         ],
+      ),
+    );
+  }
+  void _mostrarDialogoEditar(BuildContext context, String docId, String currentName) {
+    final controller = TextEditingController(text: currentName);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+         title: Text("Editar Secretaría"),
+         content: TextField(controller: controller, decoration: InputDecoration(labelText: "Nombre")),
+         actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text("Cancelar"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                 if (controller.text.isNotEmpty) {
+                    await FirebaseFirestore.instance
+                        .collection('secretarias')
+                        .doc(docId)
+                        .update({'nombre': controller.text.trim()});
+                    Navigator.pop(context);
+                 }
+              },
+              child: Text("Actualizar"),
+            )
+         ],
+      ),
+    );
+  }
+
+  void _confirmarEliminar(BuildContext context, String docId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+         title: Text("Confirmar Eliminación"),
+         content: Text("¿Estás seguro de eliminar esta Secretaría? Esta acción no se puede deshacer y borrará también sus unidades y áreas."),
+         actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+            TextButton(
+              onPressed: () async {
+                 await FirebaseFirestore.instance
+                        .collection('secretarias')
+                        .doc(docId)
+                        .delete();
+                 Navigator.pop(context);
+              },
+              child: Text("Eliminar", style: TextStyle(color: Colors.red)),
+            )
+         ],
       ),
     );
   }
