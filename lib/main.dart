@@ -78,7 +78,8 @@ class SplashScreen extends StatelessWidget {
                 shape: BoxShape.circle,
                 boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 20)],
               ),
-              child: Icon(Icons.account_balance, size: 60, color: Color(0xFFA62145)),
+              // child: Icon(Icons.account_balance, size: 60, color: Color(0xFFA62145)),
+              child: Image.asset('assets/images/logo_01.png', width: 80),
             ),
             SizedBox(height: 30),
             Text("SICOPA", style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold, letterSpacing: 3)),
@@ -165,15 +166,13 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
             ),
           ),
           
-          // Logo Institucional Gigante (Marca de agua asimétrica)
+              // Logo Institucional Gigante (Marca de agua asimétrica)
           Positioned(
             top: 60,
             right: 20,
             child: Opacity(
               opacity: 0.9,
-              // Usar imagen si existe, sino Icono como placeholder elegante
-              // child: Image.asset('assets/images/logo_gem.png', width: 200), 
-              child: Icon(Icons.account_balance, size: 180, color: Colors.white.withOpacity(0.2)),
+              child: Image.asset('assets/images/logo_01.png', width: 200),
             ),
           ),
 
@@ -236,10 +235,10 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text("Bienvenido de nuevo,", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+                          Text("Bienvenido al sistema,", style: TextStyle(color: Colors.grey[600], fontSize: 14)),
                           SizedBox(height: 5),
                           Text(
-                            "Enrique David\nGama González",
+                            "Control Patrimonial",
                             style: TextStyle(
                               fontSize: 22,
                               color: Colors.black87,
@@ -288,8 +287,8 @@ class _PantallaInicioState extends State<PantallaInicio> with SingleTickerProvid
               child: Opacity(
                  opacity: 0.7,
                  child: Image.asset(
-                   'assets/images/logo_gobierno.png', 
-                   height: 40,
+                   'assets/images/logo.png', 
+                   height: 60,
                    errorBuilder: (c, o, s) => Text("GOBIERNO DEL ESTADO DE MÉXICO", style: TextStyle(fontSize: 10, letterSpacing: 2, color: Colors.grey)),
                  ),
               ),
