@@ -218,17 +218,21 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
                         Positioned(
                           bottom: 0,
                           right: 0,
-                          child: InkWell(
-                            onTap: isUploadingImage ? null : _pickAndUploadImage,
-                            child: Container(
-                              padding: EdgeInsets.all(8), // Aumentado de 4 a 8
-                              decoration: BoxDecoration(
-                                color: Color(0xFFA62145),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2), // Borde blanco para destacar
-                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: isUploadingImage ? null : _pickAndUploadImage,
+                              customBorder: CircleBorder(),
+                              child: Container(
+                                padding: EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Color(0xFFA62145),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white, width: 2),
+                                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                                ),
+                                child: Icon(Icons.camera_alt, color: Colors.white, size: 20),
                               ),
-                              child: Icon(Icons.camera_alt, color: Colors.white, size: 20), // Aumentado de 14 a 20
                             ),
                           ),
                         ),
