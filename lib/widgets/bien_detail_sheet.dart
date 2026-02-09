@@ -223,6 +223,8 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
                             child: InkWell(
                               onTap: isUploadingImage ? null : _pickAndUploadImage,
                               customBorder: CircleBorder(),
+                              splashColor: Colors.white.withOpacity(0.3),
+                              highlightColor: Colors.white.withOpacity(0.1),
                               child: Container(
                                 padding: EdgeInsets.all(8),
                                 decoration: BoxDecoration(
