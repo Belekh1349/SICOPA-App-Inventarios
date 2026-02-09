@@ -25,6 +25,7 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
   MobileScannerController? _cameraController;
   String _estatusActual = 'ESPERANDO';
   bool _isProcessing = false;
+  bool _isScannerActive = true; 
   Map<String, dynamic>? _bienEncontrado;
   String? _lastScannedCode;
 
@@ -42,6 +43,32 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
   void dispose() {
     _cameraController?.dispose();
     super.dispose();
+  }
+
+  // ... (otros métodos) ...
+
+  void _showBienDetails() {
+    if (_bienEncontrado == null) return;
+    
+    // Detener escáner temporalmente para liberar la cámara
+    setState(() => _isScannerActive = false);
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => BienDetailSheet(
+        bien: _bienEncontrado!,
+        onStatusChanged: (newStatus) async {
+          await _updateBienStatus(newStatus);
+        },
+      ),
+    ).whenComplete(() {
+      // Reactivar escáner al cerrar 
+      Future.delayed(Duration(milliseconds: 300), () {
+        if (mounted) setState(() => _isScannerActive = true);
+      });
+    });
   }
 
   Future<void> _buscarPorInventario(String idOInventario) async {
@@ -225,20 +252,7 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
     });
   }
 
-  void _showBienDetails() {
-    if (_bienEncontrado == null) return;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => BienDetailSheet(
-        bien: _bienEncontrado!,
-        onStatusChanged: (newStatus) async {
-          await _updateBienStatus(newStatus);
-        },
-      ),
-    );
-  }
+
   
   Future<void> _updateBienStatus(String newStatus) async {
     if (_bienEncontrado == null) return;
@@ -371,10 +385,19 @@ class _VerificacionScreenState extends State<VerificacionScreen> {
               clipBehavior: Clip.hardEdge,
               child: Stack(
                 children: [
-                  MobileScanner(
-                    controller: _cameraController,
-                    onDetect: _onBarcodeDetected,
-                  ),
+                  if (_isScannerActive)
+                    MobileScanner(
+                      controller: _cameraController,
+                      onDetect: _onBarcodeDetected,
+                    )
+                  else
+                    Container(
+                      color: Colors.black,
+                      child: Center(
+                        child: Text("Cámara Pausada", style: TextStyle(color: Colors.white54)),
+                      ),
+                    ),
+                  
                   Center(
                     child: Container(
                       width: 250,

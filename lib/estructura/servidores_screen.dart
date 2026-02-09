@@ -17,6 +17,66 @@ class _ServidoresScreenState extends State<ServidoresScreen> {
   String _searchQuery = '';
   final _searchController = TextEditingController();
 
+  void _showAddServidorDialog() {
+    final nombreController = TextEditingController();
+    final cargoController = TextEditingController();
+    final areaController = TextEditingController(text: widget.filterAreaNombre);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Registrar Nuevo Servidor"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombreController,
+              decoration: InputDecoration(labelText: "Nombre Completo *", border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.characters,
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: cargoController,
+              decoration: InputDecoration(labelText: "Cargo", border: OutlineInputBorder()),
+            ),
+            SizedBox(height: 12),
+            TextField(
+              controller: areaController,
+              decoration: InputDecoration(labelText: "Área", border: OutlineInputBorder()),
+              textCapitalization: TextCapitalization.characters,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
+            onPressed: () async {
+              if (nombreController.text.isEmpty) return;
+              try {
+                await FirebaseFirestore.instance.collection('servidores').add({
+                  'nombre': nombreController.text.toUpperCase().trim(),
+                  'cargo': cargoController.text,
+                  'area': areaController.text.toUpperCase().trim(),
+                  'fechaRegistro': FieldValue.serverTimestamp(),
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Servidor registrado"), backgroundColor: Colors.green),
+                );
+              } catch (e) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+                );
+              }
+            },
+            child: Text("Guardar", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,6 +232,12 @@ class _ServidoresScreenState extends State<ServidoresScreen> {
             ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _showAddServidorDialog,
+        backgroundColor: Color(0xFFA62145),
+        icon: Icon(Icons.person_add),
+        label: Text("Nuevo Servidor"),
       ),
     );
   }

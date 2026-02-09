@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'dart:typed_data';
+import 'dart:io';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 class BienDetailSheet extends StatefulWidget {
   final Map<String, dynamic> bien;
@@ -20,11 +26,97 @@ class BienDetailSheet extends StatefulWidget {
 class _BienDetailSheetState extends State<BienDetailSheet> {
   late String status;
   bool isUpdating = false;
+  String? imageUrl;
+  bool isUploadingImage = false;
 
   @override
   void initState() {
     super.initState();
     status = widget.bien['status'] ?? 'POR_UBICAR';
+    imageUrl = widget.bien['imageUrl'];
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    final picker = ImagePicker();
+    ImageSource? source;
+
+    if (kIsWeb) {
+      // En Web/Safari Mobile, es mejor llamar directo para no perder el 'user gesture'
+      // El navegador se encarga de dar la opción de Cámara o Galería.
+      source = ImageSource.gallery; 
+    } else {
+      source = await showModalBottomSheet<ImageSource>(
+        context: context,
+        builder: (context) => SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Icons.photo_camera),
+                title: Text('Tomar Foto'),
+                onTap: () => Navigator.pop(context, ImageSource.camera),
+              ),
+              ListTile(
+                leading: Icon(Icons.photo_library),
+                title: Text('Galería'),
+                onTap: () => Navigator.pop(context, ImageSource.gallery),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (source == null) return;
+    
+    // Mover selección dentro de try-catch para capturar errores de permisos
+    XFile? photo;
+    try {
+      photo = await picker.pickImage(
+        source: source,
+        maxWidth: 600, 
+        imageQuality: 35, 
+      );
+    } catch (e) {
+      print("Error picking image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al abrir cámara/galería: $e"), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (photo == null) return;
+
+    setState(() => isUploadingImage = true);
+
+    try {
+      final String docId = widget.bien['id_doc'] ?? widget.bien['id'];
+      
+      // Leer bytes de la imagen
+      final Uint8List imageBytes = await photo.readAsBytes();
+      
+      // Convertir a Base64
+      final String base64Image = "data:image/jpeg;base64,${base64Encode(imageBytes)}";
+
+      await FirebaseFirestore.instance
+          .collection('bienes')
+          .doc(docId)
+          .update({'imageUrl': base64Image});
+
+      setState(() {
+        imageUrl = base64Image;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Imagen guardada localmente en la DB"), backgroundColor: Colors.green),
+      );
+    } catch (e) {
+      print("Error saving base64 image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al guardar imagen: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      setState(() => isUploadingImage = false);
+    }
   }
 
   Future<void> _updateStatus(String newStatus) async {
@@ -62,7 +154,7 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
   Widget build(BuildContext context) {
     
     return Container(
-      height: MediaQuery.of(context).size.height * 0.7,
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.only(
@@ -83,22 +175,65 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
             ),
           ),
           
-          // Header con estado
+          // Header con imagen o icono
           Container(
             padding: EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: _getStatusColor(status).withOpacity(0.1),
+              color: _getStatusColor(status).withOpacity(0.05),
               border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
             ),
             child: Row(
               children: [
-                Container(
-                  padding: EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(status),
-                    borderRadius: BorderRadius.circular(12),
+                GestureDetector(
+                  onTap: isUploadingImage ? null : _pickAndUploadImage,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: 90,
+                        height: 90,
+                        decoration: BoxDecoration(
+                          color: _getStatusColor(status).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(15),
+                          image: imageUrl != null && imageUrl!.startsWith('data:image')
+                              ? DecorationImage(
+                                  image: MemoryImage(
+                                    base64Decode(imageUrl!.split(',').last),
+                                  ),
+                                  fit: BoxFit.cover,
+                                )
+                              : (imageUrl != null
+                                  ? DecorationImage(
+                                      image: NetworkImage(imageUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : null),
+                        ),
+                        child: imageUrl == null
+                            ? Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 40)
+                            : null,
+                      ),
+                      if (isUploadingImage)
+                        CircularProgressIndicator(color: _getStatusColor(status)),
+                        Positioned(
+                          bottom: 0,
+                          right: 0,
+                          child: InkWell(
+                            onTap: isUploadingImage ? null : _pickAndUploadImage,
+                            child: Container(
+                              padding: EdgeInsets.all(8), // Aumentado de 4 a 8
+                              decoration: BoxDecoration(
+                                color: Color(0xFFA62145),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 2), // Borde blanco para destacar
+                                boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 4)],
+                              ),
+                              child: Icon(Icons.camera_alt, color: Colors.white, size: 20), // Aumentado de 14 a 20
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  child: Icon(_getStatusIcon(status), color: Colors.white, size: 28),
                 ),
                 SizedBox(width: 15),
                 Expanded(
@@ -107,11 +242,11 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
                     children: [
                       Text(
                         widget.bien['descripcion'] ?? 'Sin descripción',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      SizedBox(height: 4),
+                      SizedBox(height: 8),
                       Row(
                         children: [
                           Container(
@@ -122,7 +257,7 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
                             ),
                             child: Text(
                               _getStatusLabel(status),
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                              style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
                           if (isUpdating) ...[
@@ -138,27 +273,53 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
             ),
           ),
           
-          // Detalles del bien
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(20),
+              padding: EdgeInsets.symmetric(horizontal: 20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildDetailRow("Inventario (CSV)", widget.bien['inventario'] ?? 'N/A', Icons.inventory),
-                  _buildDetailRow("ID Patrimonial", widget.bien['id'] ?? 'N/A', Icons.tag),
-                  _buildDetailRow("Código de Barras", widget.bien['codigo'] ?? 'N/A', Icons.qr_code),
-                  _buildDetailRow("Ubicación", widget.bien['ubicacion'] ?? 'Sin ubicación', Icons.location_on),
-                  _buildDetailRow("Resguardatario", widget.bien['servidorPublico'] ?? widget.bien['resguardatario'] ?? 'Sin asignar', Icons.person),
-                  _buildDetailRow("Área", widget.bien['area'] ?? 'N/A', Icons.business),
-                  _buildDetailRow("Valor", widget.bien['valor'] != null ? '\$${widget.bien['valor']}' : 'N/A', Icons.attach_money),
-                  if (widget.bien['observaciones'] != null && widget.bien['observaciones'].toString().isNotEmpty)
-                    _buildDetailRow("Observaciones", widget.bien['observaciones'], Icons.notes),
-                  if (widget.bien['ultimaVerificacion'] != null)
-                    _buildDetailRow(
-                      "Última Verificación", 
-                      _formatTimestamp(widget.bien['ultimaVerificacion']), 
-                      Icons.access_time
-                    ),
+                  SizedBox(height: 15),
+                  _buildSectionTitle("ESTRUCTURA ADMINISTRATIVA"),
+                  _buildDetailItem(Icons.account_balance, "Secretaría", widget.bien['secretaria']),
+                  _buildDetailItem(Icons.business, "Unidad", widget.bien['unidadAdministrativa']),
+                  _buildDetailItem(Icons.location_on, "Área", widget.bien['area']),
+                  _buildDetailItem(Icons.place, "Ubicación Física", widget.bien['ubicacion']),
+                  
+                  Divider(height: 30),
+                  _buildSectionTitle("ASIGNACIÓN Y CONTROL"),
+                  _buildDetailItem(Icons.person, "Resguardatario", widget.bien['servidorPublico'] ?? widget.bien['resguardatario']),
+                  _buildDetailItem(Icons.inventory, "No. Inventario", widget.bien['inventario'] ?? widget.bien['id_doc']),
+                  _buildDetailItem(Icons.qr_code, "NIC / Código", widget.bien['nic'] ?? widget.bien['codigo']),
+                  
+                  Divider(height: 30),
+                  _buildSectionTitle("DETALLES TÉCNICOS"),
+                  _buildDetailItem(Icons.info_outline, "Estado de Uso", widget.bien['estadoUso']),
+                  _buildDetailItem(Icons.category, "Génerico", widget.bien['activoGenerico']),
+                  _buildDetailItem(Icons.branding_watermark, "Marca", widget.bien['marca']),
+                  _buildDetailItem(Icons.style, "Modelo", widget.bien['modelo']),
+                  _buildDetailItem(Icons.format_list_numbered, "Serie", widget.bien['serie']),
+                  
+                  Divider(height: 30),
+                  _buildSectionTitle("CARACTERÍSTICAS"),
+                  _buildDetailItem(Icons.color_lens, "Color", widget.bien['color']),
+                  _buildDetailItem(Icons.layers, "Material", widget.bien['material']),
+                  _buildDetailItem(Icons.description, "Otras Características", widget.bien['caracteristicas']),
+                  
+                  Divider(height: 30),
+                  _buildSectionTitle("INFORMACIÓN CONTABLE"),
+                  _buildDetailItem(Icons.attach_money, "Valor", widget.bien['valor'] != null ? "\$${widget.bien['valor']}" : null),
+                  _buildDetailItem(Icons.calendar_today, "Fecha Adquisición", _formatValue(widget.bien['fechaAdquisicion'])),
+                  
+                  if (widget.bien['observaciones'] != null || widget.bien['ultimaVerificacion'] != null) ...[
+                    Divider(height: 30),
+                    _buildSectionTitle("AUDITORÍA"),
+                    if (widget.bien['ultimaVerificacion'] != null)
+                      _buildDetailItem(Icons.history, "Última Verificación", _formatTimestamp(widget.bien['ultimaVerificacion'])),
+                    if (widget.bien['observaciones'] != null)
+                      _buildDetailItem(Icons.note, "Observaciones", widget.bien['observaciones']),
+                  ],
+                  SizedBox(height: 20),
                 ],
               ),
             ),
@@ -211,28 +372,43 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
     );
   }
   
-  Widget _buildDetailRow(String label, String value, IconData icon) {
+  Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 10),
+      padding: EdgeInsets.only(bottom: 12),
+      child: Text(
+        title,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFFA62145),
+          letterSpacing: 1.2,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailItem(IconData icon, String label, dynamic value) {
+    if (value == null || value.toString().isEmpty || value.toString() == "null") {
+      return SizedBox.shrink();
+    }
+    
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Color(0xFFA62145).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: Color(0xFFA62145), size: 20),
-          ),
-          SizedBox(width: 15),
+          Icon(icon, size: 18, color: Colors.grey.shade400),
+          SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
                 SizedBox(height: 2),
-                Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
+                Text(
+                  value.toString(),
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black87),
+                ),
               ],
             ),
           ),
@@ -294,6 +470,15 @@ class _BienDetailSheetState extends State<BienDetailSheet> {
     }
   }
   
+  String? _formatValue(dynamic date) {
+    if (date == null) return null;
+    if (date is Timestamp) {
+      final dt = date.toDate();
+      return "${dt.day}/${dt.month}/${dt.year}";
+    }
+    return date.toString();
+  }
+
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp is Timestamp) {
       final date = timestamp.toDate();

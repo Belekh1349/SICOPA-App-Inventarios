@@ -44,6 +44,18 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if esAdmin() || request.auth.uid == userId;
     }
+
+    // Colección de Servidores Públicos
+    match /servidores/{servId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if esAdmin();
+    }
+
+    // Estructura Organizacional (Secretarías, Unidades y Áreas)
+    match /secretarias/{secretariaId=**} {
+      allow read: if isAuthenticated();
+      allow write: if esAdmin();
+    }
     
     // Colección de Configuraciones (para fondos, etc.)
     match /configuracion/{docId} {

@@ -114,6 +114,35 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
             
             SizedBox(height: 30),
             
+            // Sección de Importación Secuencial (Nueva)
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Color(0xFFA62145).withOpacity(0.05),
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Color(0xFFA62145).withOpacity(0.2)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.account_tree, color: Color(0xFFA62145)),
+                      SizedBox(width: 10),
+                      Text("Importación Secuencial (Recomendado)", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                  SizedBox(height: 10),
+                  Text(
+                    "Si prefieres un control total, sube un archivo CSV que contenga solo UNA Secretaría con sus Unidades y Áreas. Esto ayudará a construir la estructura correctamente paso a paso.",
+                    style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                  ),
+                ],
+              ),
+            ),
+
+            SizedBox(height: 25),
+            
             // Status de carga
             if (_statusMessage != null)
               Container(
@@ -127,14 +156,16 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
                 child: Column(
                   children: [
                     if (_isLoading)
-                      CircularProgressIndicator(color: Color(0xFFA62145)),
-                    SizedBox(height: 10),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: CircularProgressIndicator(color: Color(0xFFA62145)),
+                      ),
                     Text(_statusMessage!, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
               ),
             
-            // Botón de carga
+            // Botón de carga principal
             SizedBox(
               width: double.infinity,
               height: 55,
@@ -153,11 +184,23 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
             
             SizedBox(height: 20),
             
+            // Opción de limpieza
+            Center(
+              child: TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                icon: Icon(Icons.delete_sweep),
+                label: Text("Limpiar Base de Datos (Reiniciar)"),
+                onPressed: _isLoading ? null : _confirmarLimpiezaTotal,
+              ),
+            ),
+            
+            SizedBox(height: 10),
+
             // Descargar plantilla
             Center(
               child: TextButton.icon(
                 icon: Icon(Icons.download),
-                label: Text("Ver estructura completa"),
+                label: Text("Ver estructura de columnas"),
                 onPressed: () {
                    showDialog(
                      context: context,
@@ -329,24 +372,94 @@ class _RespaldoScreenState extends State<RespaldoScreen> {
     }
   }
 
-  Future<void> _importarConServicio() async {
+  void _confirmarLimpiezaTotal() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("¿Reiniciar Base de Datos?"),
+        content: Text("Esto eliminará TODOS los bienes y la estructura de Secretarías/Áreas actual. Es ideal si vas a subir un nuevo archivo estructurado."),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _ejecutarLimpieza();
+            },
+            child: Text("SÍ, ELIMINAR TODO", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _ejecutarLimpieza() async {
     setState(() {
       _isLoading = true;
-      _statusMessage = "Cargando bienes...";
+      _statusMessage = "Limpiando base de datos...";
     });
 
     try {
-      final service = CsvImportService();
-      await service.importBienesFromCsv();
+      // 1. Eliminar Bienes
+      final bienes = await FirebaseFirestore.instance.collection('bienes').get();
+      final batch = FirebaseFirestore.instance.batch();
+      for (var doc in bienes.docs) {
+        batch.delete(doc.reference);
+      }
       
+      // 2. Eliminar Estructura
+      final sec = await FirebaseFirestore.instance.collection('secretarias').get();
+      for (var doc in sec.docs) {
+        batch.delete(doc.reference);
+      }
+
+      await batch.commit();
+
       setState(() {
         _isLoading = false;
-        _statusMessage = "✅ Importación completada con éxito";
+        _statusMessage = "Base de datos reiniciada. Lista para nueva carga.";
       });
     } catch (e) {
       setState(() {
         _isLoading = false;
-        _statusMessage = "❌ Error en la importación";
+        _statusMessage = "Error al limpiar: $e";
+      });
+    }
+  }
+
+  Future<void> _importarConServicio() async {
+    setState(() {
+      _isLoading = true;
+      _statusMessage = "Seleccionando archivo...";
+    });
+
+    try {
+      final service = CsvImportService();
+      final result = await service.importBienesFromCsv();
+      
+      setState(() {
+        _isLoading = false;
+        _statusMessage = result['message'];
+      });
+
+      if (result['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Importación exitosa: ${result['successCount']} registros"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else if (result['message'] != 'No se seleccionó ningún archivo') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error: ${result['message']}"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _statusMessage = "❌ Error inesperado: $e";
       });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),

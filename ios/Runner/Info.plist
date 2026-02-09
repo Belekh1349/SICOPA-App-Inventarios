@@ -58,6 +58,10 @@
 	<!-- Permisos para Galería (opcional, si se usa file_picker) -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SICOPA necesita acceso a tu galería para seleccionar imágenes de bienes.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>SICOPA necesita acceso a tu galería para guardar imágenes.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>SICOPA necesita acceso al micrófono para grabar videos de evidencia.</string>
 	<!-- Configuración de Firebase -->
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>

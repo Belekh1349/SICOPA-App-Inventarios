@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
 import '../widgets/bien_detail_sheet.dart';
 
 class ListaBienesScreen extends StatefulWidget {
@@ -66,7 +67,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
       ),
       body: Column(
         children: [
-          // Banner informativo si hay filtro por área
           if (widget.filterAreaNombre != null)
             Container(
               width: double.infinity,
@@ -86,7 +86,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
               ),
             ),
 
-          // Barra de búsqueda
           Container(
             padding: EdgeInsets.all(16),
             color: Color(0xFFA62145).withOpacity(0.1),
@@ -115,7 +114,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
             ),
           ),
           
-          // Chips de filtro activo
           if (_filterStatus != 'TODOS')
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -131,7 +129,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
               ),
             ),
           
-          // Lista de bienes
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: _buildQuery(),
@@ -156,7 +153,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                 
                 final docs = snapshot.data?.docs ?? [];
                 
-                // Filtrar por búsqueda
                 final filteredDocs = docs.where((doc) {
                   if (_searchQuery.isEmpty) return true;
                   final data = doc.data() as Map<String, dynamic>;
@@ -184,9 +180,8 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                   );
                 }
                 
-                return Column( // Wrap with Column to include the banner
+                return Column(
                   children: [
-                    // Banner informativo si hay filtros
                     if (bannerText.isNotEmpty)
                       Container(
                         width: double.infinity,
@@ -216,7 +211,7 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                         itemBuilder: (context, index) {
                           final doc = filteredDocs[index];
                           final data = doc.data() as Map<String, dynamic>;
-                          data['id'] = doc.id;
+                          data['id_doc'] = doc.id; // Importante para BienDetailSheet
                           return _buildBienCard(data);
                         },
                       ),
@@ -240,12 +235,7 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   Stream<QuerySnapshot> _buildQuery() {
     Query query = FirebaseFirestore.instance.collection('bienes');
     
-    // Prioridad de filtros
     if (widget.filterServidorNombre != null) {
-      // Intentamos filtrar por el nombre que viene (ya debería venir en Mayúsculas desde la navegación)
-      // Nota: Firestore no soporta 'OR' fácilmente en consultas simples sin índices específicos,
-      // pero usaremos 'servidorPublico' como principal. 
-      // Si la navegación ya manda el campo correcto, esto funcionará.
       query = query.where('servidorPublico', isEqualTo: widget.filterServidorNombre!.toUpperCase());
     } else if (widget.filterAreaId != null) {
       query = query.where('areaId', isEqualTo: widget.filterAreaId);
@@ -270,7 +260,7 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
     final secretaria = bien['secretaria'] ?? '';
     final unidad = bien['unidadAdministrativa'] ?? '';
     final area = bien['area'] ?? '';
-    final inventario = bien['inventario'] ?? bien['id'] ?? 'N/A';
+    final inventario = bien['inventario'] ?? bien['id_doc'] ?? 'N/A';
     
     String hierarchy = "";
     if (secretaria.isNotEmpty) hierarchy += secretaria;
@@ -288,7 +278,12 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
             context: context,
             isScrollControlled: true,
             backgroundColor: Colors.transparent,
-            builder: (context) => BienDetailSheet(bien: bien),
+            builder: (context) => BienDetailSheet(
+              bien: bien,
+              onStatusChanged: (newStatus) {
+                // El StreamBuilder lo actualizará auto
+              },
+            ),
           );
         },
         child: Padding(
@@ -297,13 +292,28 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                width: 45,
-                height: 45,
+                width: 55,
+                height: 55,
                 decoration: BoxDecoration(
                   color: _getStatusColor(status).withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
+                  image: bien['imageUrl'] != null
+                      ? (bien['imageUrl'].toString().startsWith('data:image')
+                          ? DecorationImage(
+                              image: MemoryImage(
+                                base64Decode(bien['imageUrl'].split(',').last),
+                              ),
+                              fit: BoxFit.cover,
+                            )
+                          : DecorationImage(
+                              image: NetworkImage(bien['imageUrl']),
+                              fit: BoxFit.cover,
+                            ))
+                      : null,
                 ),
-                child: Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 24),
+                child: bien['imageUrl'] == null
+                    ? Icon(_getStatusIcon(status), color: _getStatusColor(status), size: 28)
+                    : null,
               ),
               SizedBox(width: 15),
               Expanded(
@@ -349,13 +359,6 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                           "Inv: $inventario",
                           style: TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
                         ),
-                        if (bien['nic'] != null) ...[
-                          Text(" | ", style: TextStyle(color: Colors.grey, fontSize: 11)),
-                          Text(
-                            "NIC: ${bien['nic']}",
-                            style: TextStyle(color: Colors.grey, fontSize: 11, fontFamily: 'monospace'),
-                          ),
-                        ]
                       ],
                     ),
                   ],
@@ -386,44 +389,87 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
   
   void _showAddBienDialog() {
     final descController = TextEditingController();
-    final codigoController = TextEditingController();
+    final inventarioController = TextEditingController();
+    final nicController = TextEditingController();
+    final secretariaController = TextEditingController(text: widget.filterSecretariaNombre);
+    final unidadController = TextEditingController(text: widget.filterUnidadNombre);
+    final areaController = TextEditingController(text: widget.filterAreaNombre);
     final ubicacionController = TextEditingController();
-    final resguardatarioController = TextEditingController();
+    final resguardatarioController = TextEditingController(text: widget.filterServidorNombre);
+    final marcaController = TextEditingController();
+    final modeloController = TextEditingController();
+    final serieController = TextEditingController();
+    final estadoUsoController = TextEditingController(text: "BUENO");
+    final colorController = TextEditingController();
+    final materialController = TextEditingController();
+    final valorController = TextEditingController();
+    final obsController = TextEditingController();
     
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Registrar Nuevo Bien"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: descController,
-                decoration: InputDecoration(labelText: "Descripción *", border: OutlineInputBorder()),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: codigoController,
-                decoration: InputDecoration(labelText: "Código de Barras", border: OutlineInputBorder()),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: ubicacionController,
-                decoration: InputDecoration(labelText: "Ubicación", border: OutlineInputBorder()),
-              ),
-              SizedBox(height: 12),
-              TextField(
-                controller: resguardatarioController,
-                decoration: InputDecoration(labelText: "Resguardatario", border: OutlineInputBorder()),
-              ),
-            ],
+        title: Row(
+          children: [
+            Icon(Icons.add_business, color: Color(0xFFA62145)),
+            SizedBox(width: 10),
+            Text("Nuevo Registro de Bien"),
+          ],
+        ),
+        content: Container(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildFormSection("DATOS PRINCIPALES"),
+                _buildFormField(descController, "Descripción del Bien *", Icons.description),
+                _buildFormField(inventarioController, "No. Inventario", Icons.inventory),
+                _buildFormField(nicController, "NIC / Código de Barras", Icons.qr_code),
+                
+                SizedBox(height: 15),
+                _buildFormSection("ESTRUCTURA Y UBICACIÓN"),
+                _buildFormField(secretariaController, "Secretaría", Icons.account_balance),
+                _buildFormField(unidadController, "Unidad Administrativa", Icons.business),
+                _buildFormField(areaController, "Área", Icons.location_on),
+                _buildFormField(ubicacionController, "Ubicación Física", Icons.place),
+                _buildFormField(resguardatarioController, "Servidor Público (Resguardatario)", Icons.person),
+                
+                SizedBox(height: 15),
+                _buildFormSection("DETALLES TÉCNICOS"),
+                Row(
+                  children: [
+                    Expanded(child: _buildFormField(marcaController, "Marca", Icons.branding_watermark)),
+                    SizedBox(width: 10),
+                    Expanded(child: _buildFormField(modeloController, "Modelo", Icons.style)),
+                  ],
+                ),
+                _buildFormField(serieController, "Número de Serie", Icons.format_list_numbered),
+                Row(
+                  children: [
+                    Expanded(child: _buildFormField(colorController, "Color", Icons.color_lens)),
+                    SizedBox(width: 10),
+                    Expanded(child: _buildFormField(materialController, "Material", Icons.layers)),
+                  ],
+                ),
+                _buildFormField(estadoUsoController, "Estado de Uso", Icons.info_outline),
+                
+                SizedBox(height: 15),
+                _buildFormSection("INFORMACIÓN ADICIONAL"),
+                _buildFormField(valorController, "Valor Contable", Icons.attach_money, keyboardType: TextInputType.number),
+                _buildFormField(obsController, "Observaciones", Icons.note, maxLines: 3),
+              ],
+            ),
           ),
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: Text("Cancelar")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Color(0xFFA62145)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Color(0xFFA62145),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
             onPressed: () async {
               if (descController.text.isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -434,12 +480,27 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
               
               try {
                 await FirebaseFirestore.instance.collection('bienes').add({
-                  'descripcion': descController.text,
-                  'codigo': codigoController.text,
-                  'ubicacion': ubicacionController.text,
-                  'resguardatario': resguardatarioController.text,
+                  'descripcion': descController.text.toUpperCase(),
+                  'inventario': inventarioController.text.toUpperCase(),
+                  'nic': nicController.text.toUpperCase(),
+                  'codigo': nicController.text.toUpperCase(),
+                  'secretaria': secretariaController.text.toUpperCase(),
+                  'unidadAdministrativa': unidadController.text.toUpperCase(),
+                  'area': areaController.text.toUpperCase(),
+                  'ubicacion': ubicacionController.text.toUpperCase(),
+                  'servidorPublico': resguardatarioController.text.toUpperCase(),
+                  'resguardatario': resguardatarioController.text.toUpperCase(),
+                  'marca': marcaController.text.toUpperCase(),
+                  'modelo': modeloController.text.toUpperCase(),
+                  'serie': serieController.text.toUpperCase(),
+                  'estadoUso': estadoUsoController.text.toUpperCase(),
+                  'color': colorController.text.toUpperCase(),
+                  'material': materialController.text.toUpperCase(),
+                  'valor': valorController.text,
+                  'observaciones': obsController.text,
                   'status': 'POR_UBICAR',
                   'fechaRegistro': FieldValue.serverTimestamp(),
+                  'ultimaVerificacion': null,
                 });
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -451,9 +512,38 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
                 );
               }
             },
-            child: Text("Guardar", style: TextStyle(color: Colors.white)),
+            child: Text("Guardar Registro", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFormSection(String title) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 10),
+      child: Text(
+        title,
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFA62145), letterSpacing: 1.1),
+      ),
+    );
+  }
+
+  Widget _buildFormField(TextEditingController controller, String label, IconData icon, {TextInputType keyboardType = TextInputType.text, int maxLines = 1}) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: 12),
+      child: TextField(
+        controller: controller,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        textCapitalization: TextCapitalization.characters,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, size: 20, color: Colors.grey),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+          isDense: true,
+        ),
       ),
     );
   }
@@ -493,145 +583,5 @@ class _ListaBienesScreenState extends State<ListaBienesScreen> {
       case 'NO_UBICADO': return 'No Ubic.';
       default: return 'Por Ubic.';
     }
-  }
-}
-
-class BienDetailSheet extends StatelessWidget {
-  final Map<String, dynamic> bien;
-  
-  const BienDetailSheet({Key? key, required this.bien}) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 10, 20, 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 40,
-            height: 5,
-            decoration: BoxDecoration(
-              color: Colors.grey[300],
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  bien['descripcion'] ?? 'Sin descripción',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              _buildStatusIndicator(bien['status'] ?? 'POR_UBICAR'),
-            ],
-          ),
-          Divider(height: 30),
-          Expanded(
-            child: ListView(
-              children: [
-                _buildInfoSection("Estructura Administrativa", [
-                  _infoRow(Icons.account_balance, "Secretaría", bien['secretaria']),
-                  _infoRow(Icons.business, "Unidad", bien['unidadAdministrativa']),
-                  _infoRow(Icons.location_on, "Área", bien['area']),
-                ]),
-                _buildInfoSection("Asignación", [
-                  _infoRow(Icons.person, "Resguardatario", bien['servidorPublico']),
-                  _infoRow(Icons.tag, "Inventario", bien['inventario']),
-                  _infoRow(Icons.confirmation_number, "NIC", bien['nic']),
-                ]),
-                _buildInfoSection("Detalles del Bien", [
-                  _infoRow(Icons.info_outline, "Estado", bien['estadoUso']),
-                  _infoRow(Icons.category, "Génerico", bien['activoGenerico']),
-                  _infoRow(Icons.branding_watermark, "Marca", bien['marca']),
-                  _infoRow(Icons.style, "Modelo", bien['modelo']),
-                  _infoRow(Icons.format_list_numbered, "Serie", bien['serie']),
-                ]),
-                _buildInfoSection("Características", [
-                  _infoRow(Icons.color_lens, "Color", bien['color']),
-                  _infoRow(Icons.layers, "Material", bien['material']),
-                  _infoRow(Icons.text_fields, "Otros", bien['caracteristicas']),
-                ]),
-                _buildInfoSection("Contable", [
-                  _infoRow(Icons.attach_money, "Valor", bien['valor']?.toString()),
-                  _infoRow(Icons.calendar_today, "Adquisición", _formatDate(bien['fechaAdquisicion'])),
-                ]),
-              ],
-            ),
-          ),
-          SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFFA62145),
-                padding: EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
-              onPressed: () => Navigator.pop(context),
-              child: Text("Cerrar", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoSection(String title, List<Widget> children) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(title.toUpperCase(), style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFA62145))),
-        ),
-        ...children,
-        SizedBox(height: 10),
-      ],
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, dynamic value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        children: [
-          Icon(icon, size: 16, color: Colors.grey),
-          SizedBox(width: 8),
-          Text("$label: ", style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13)),
-          Expanded(child: Text(value?.toString() ?? 'N/A', style: TextStyle(fontSize: 13, color: Colors.black87))),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusIndicator(String status) {
-    Color color;
-    switch (status) {
-      case 'UBICADO': color = Colors.green; break;
-      case 'MOVIMIENTO': color = Colors.blue; break;
-      case 'NO_UBICADO': color = Colors.red; break;
-      default: color = Colors.amber;
-    }
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10), border: Border.all(color: color)),
-      child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-    );
-  }
-
-  String _formatDate(dynamic date) {
-    if (date == null) return "N/A";
-    if (date is Timestamp) {
-      final dt = date.toDate();
-      return "${dt.day}/${dt.month}/${dt.year}";
-    }
-    return date.toString();
   }
 }
